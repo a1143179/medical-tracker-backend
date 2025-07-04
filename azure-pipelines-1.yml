@@ -4,14 +4,15 @@ trigger:
 
 # Use a Microsoft-hosted Windows agent, which has all the necessary tools (like .NET SDK, Node.js)
 pool:
-#  vmImage: 'windows-latest'
-  name: 'Default'
+  vmImage: 'ubuntu-latest'
 
 variables:
   # Define variables for easy management
   buildConfiguration: 'Release'
   # Find any .csproj file in the directory structure
   projectPath: '**/*.csproj' 
+  imageName: 'bloodsugerhistory'
+  dockerHubNamespace: 'iceinplanet' # 替换为你的 Docker Hub 用户名
 
 steps:
 # Step 1: Install the specified .NET Core SDK version
@@ -34,7 +35,18 @@ steps:
     # This option automatically zips the output, which is what the deploy task needs
     zipAfterPublish: true
 
-# Step 3: Deploy the zipped package to your Azure App Service
+# Step 3: Build and push Docker image to Docker Hub
+- task: Docker@2
+  displayName: Build and push image to Docker Hub
+  inputs:
+    command: buildAndPush
+    repository: $(dockerHubNamespace)/$(imageName)
+    dockerfile: '**/Dockerfile'
+    tags: |
+      latest
+    containerRegistry: 'DockerHubServiceConnection' # 需在 Azure DevOps Service connections 配置
+
+# Step 4: Deploy the zipped package to your Azure App Service
 - task: AzureWebApp@1
   displayName: 'Deploy to Azure App Service'
   inputs:
@@ -46,3 +58,12 @@ steps:
     
     # Path to the .zip file created by the 'dotnet publish' step
     package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
+
+# Step 5: Deploy to Azure Web App (Docker)
+- task: AzureWebAppContainer@1
+  displayName: Deploy to Azure Web App (Docker)
+  inputs:
+    azureSubscription: 'AzureDeployConnection' # 你的 Azure 订阅连接名
+    appName: 'bloodsugarhistory'               # 你的 Web App 名称
+    containers: |
+      $(dockerHubNamespace)/$(imageName):latest
