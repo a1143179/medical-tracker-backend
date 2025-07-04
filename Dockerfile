@@ -15,7 +15,7 @@ COPY backend/. ./
 RUN dotnet publish -c Release -o /app/publish
 
 # ---- Step 3: create final docker image ----
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-jammy-chiseled
+FROM mcr.microsoft.com/dotnet/aspnet:9.0
 WORKDIR /app
 # get the backend built files
 COPY --from=dotnet-build /app/publish .
