@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # ---- Step 2: create ASP.NET Core backend ----
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS dotnet-build
+FROM mcr.microsoft.com/dotnet/sdk:9.0 AS dotnet-build
 WORKDIR /src
 COPY backend/*.csproj ./
 RUN dotnet restore
