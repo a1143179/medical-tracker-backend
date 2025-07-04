@@ -17,10 +17,10 @@ steps:
 # Step 1: Install the specified .NET Core SDK version
 # Please ensure the version number here matches the .NET version used by your project
 - task: UseDotNet@2
-  displayName: 'Use .NET 8.0'
+  displayName: 'Use .NET 9.0'
   inputs:
     packageType: 'sdk'
-    version: '8.0.x' # e.g., '6.0.x', '7.0.x', etc.
+    version: '9.0.x' # e.g., '6.0.x', '7.0.x', etc.
 
 # Step 2: Restore, Build, and Publish the application
 # For an ASP.NET+React project, the 'dotnet publish' command handles both backend and frontend builds
