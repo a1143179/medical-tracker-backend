@@ -4,7 +4,7 @@ trigger:
 
 # Use a Microsoft-hosted Windows agent, which has all the necessary tools (like .NET SDK, Node.js)
 pool:
-  vmImage: 'ubuntu-latest'
+  name: Default  # 或者你自定义的 agent pool 名称
 
 variables:
   # Define variables for easy management
