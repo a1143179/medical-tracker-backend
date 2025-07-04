@@ -1,22 +1,47 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
-
+# Trigger this pipeline on every push to the main branch
 trigger:
 - main
 
-#pool:
-#  vmImage: ubuntu-latest
-
+# Use a Microsoft-hosted Windows agent, which has all the necessary tools (like .NET SDK, Node.js)
 pool:
-  name: Default
+  vmImage: 'windows-latest'
+
+variables:
+  # Define variables for easy management
+  buildConfiguration: 'Release'
+  # Find any .csproj file in the directory structure
+  projectPath: '**/*.csproj' 
 
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+# Step 1: Install the specified .NET Core SDK version
+# Please ensure the version number here matches the .NET version used by your project
+- task: UseDotNet@2
+  displayName: 'Use .NET 8.0'
+  inputs:
+    packageType: 'sdk'
+    version: '8.0.x' # e.g., '6.0.x', '7.0.x', etc.
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+# Step 2: Restore, Build, and Publish the application
+# For an ASP.NET+React project, the 'dotnet publish' command handles both backend and frontend builds
+- task: DotNetCoreCLI@2
+  displayName: 'dotnet publish'
+  inputs:
+    command: 'publish'
+    publishWebProjects: true
+    # Arguments tell it to build in 'Release' mode and place the output in the artifact staging directory
+    arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)'
+    # This option automatically zips the output, which is what the deploy task needs
+    zipAfterPublish: true
+
+# Step 3: Deploy the zipped package to your Azure App Service
+- task: AzureWebApp@1
+  displayName: 'Deploy to Azure App Service'
+  inputs:
+    # This name must be replaced with the Azure Resource Manager service connection name you successfully created
+    azureSubscription: 'AzureDeployConnection'
+
+    # The name of your Web App
+    appName: 'bloodsugarhistory'
+    
+    # Path to the .zip file created by the 'dotnet publish' step
+    package: '$(Build.ArtifactStagingDirectory)/**/*.zip'
