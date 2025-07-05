@@ -1,6 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+// ======================= 调试代码开始 =======================
+Console.WriteLine("--- DUMPING ENVIRONMENT VARIABLES ---");
+var envVars = Environment.GetEnvironmentVariables();
+foreach (DictionaryEntry de in envVars)
+{
+    Console.WriteLine("  {0} = {1}", de.Key, de.Value);
+}
+Console.WriteLine("--- END OF DUMP ---");
+// ======================= 调试代码结束 =======================
 
 // 1. config services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
