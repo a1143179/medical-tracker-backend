@@ -1,6 +1,16 @@
 #!/bin/bash
 
-echo "🚀 Starting Blood Sugar History Development Environment..."
+# Check command line arguments
+DB_ONLY=false
+if [ "$1" = "--db-only" ]; then
+    DB_ONLY=true
+fi
+
+if [ "$DB_ONLY" = true ]; then
+    echo "🗄️  Starting Blood Sugar History Database Only..."
+else
+    echo "🚀 Starting Blood Sugar History Development Environment..."
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -85,37 +95,42 @@ echo -e "${GREEN}✅ .NET SDK found${NC}"
 # Check ports and offer to kill processes if needed
 echo -e "${BLUE}🔍 Checking ports...${NC}"
 
-# Check port 3000
-if ! check_port 3000; then
-    if ! kill_process_on_port 3000; then
-        exit 1
-    fi
-fi
-
-# Check port 8080
-if ! check_port 8080; then
-    if ! kill_process_on_port 8080; then
-        exit 1
-    fi
-fi
-
-# Check port 5432
+# Check port 5432 (always needed for database)
 if ! check_port 5432; then
     if ! kill_process_on_port 5432; then
         exit 1
     fi
 fi
 
+# Only check other ports if not in DB_ONLY mode
+if [ "$DB_ONLY" = false ]; then
+    # Check port 3000
+    if ! check_port 3000; then
+        if ! kill_process_on_port 3000; then
+            exit 1
+        fi
+    fi
+
+    # Check port 8080
+    if ! check_port 8080; then
+        if ! kill_process_on_port 8080; then
+            exit 1
+        fi
+    fi
+fi
+
 # Function to cleanup on exit
 cleanup() {
     echo -e "\n${YELLOW}🛑 Stopping services...${NC}"
-    if [ ! -z "$FRONTEND_PID" ]; then
-        kill $FRONTEND_PID 2>/dev/null
-        echo -e "${GREEN}✅ Frontend stopped${NC}"
-    fi
-    if [ ! -z "$BACKEND_PID" ]; then
-        kill $BACKEND_PID 2>/dev/null
-        echo -e "${GREEN}✅ Backend stopped${NC}"
+    if [ "$DB_ONLY" = false ]; then
+        if [ ! -z "$FRONTEND_PID" ]; then
+            kill $FRONTEND_PID 2>/dev/null
+            echo -e "${GREEN}✅ Frontend stopped${NC}"
+        fi
+        if [ ! -z "$BACKEND_PID" ]; then
+            kill $BACKEND_PID 2>/dev/null
+            echo -e "${GREEN}✅ Backend stopped${NC}"
+        fi
     fi
     if [ ! -z "$POSTGRES_CONTAINER" ]; then
         docker stop $POSTGRES_CONTAINER >/dev/null 2>&1
@@ -155,49 +170,54 @@ until docker exec $POSTGRES_CONTAINER pg_isready -U postgres >/dev/null 2>&1; do
 done
 echo -e "\n${GREEN}✅ PostgreSQL is ready${NC}"
 
-# Start backend
-echo -e "${BLUE}🔧 Starting backend...${NC}"
-cd backend
+# Only start backend and frontend if not in DB_ONLY mode
+if [ "$DB_ONLY" = false ]; then
+    # Start backend
+    echo -e "${BLUE}🔧 Starting backend...${NC}"
+    cd backend
 
-# Check if backend dependencies are installed
-if [ ! -d "bin" ] || [ ! -d "obj" ]; then
-    echo -e "${YELLOW}📦 Restoring backend dependencies...${NC}"
-    dotnet restore
-fi
+    # Check if backend dependencies are installed
+    if [ ! -d "bin" ] || [ ! -d "obj" ]; then
+        echo -e "${YELLOW}📦 Restoring backend dependencies...${NC}"
+        dotnet restore
+    fi
 
-# Start backend in background
-echo -e "${GREEN}🚀 Starting backend on http://localhost:8080${NC}"
-dotnet run &
-BACKEND_PID=$!
+    # Start backend in background
+    echo -e "${GREEN}🚀 Starting backend on http://localhost:8080${NC}"
+    dotnet run &
+    BACKEND_PID=$!
 
-# Wait a moment for backend to start
-sleep 5
+    # Wait a moment for backend to start
+    sleep 5
 
-# Check if backend started successfully
-if ! curl -s http://localhost:8080/health >/dev/null 2>&1; then
-    echo -e "${YELLOW}⏳ Backend is starting up...${NC}"
-    # Wait a bit more for backend to fully start
+    # Check if backend started successfully
+    if ! curl -s http://localhost:8080/health >/dev/null 2>&1; then
+        echo -e "${YELLOW}⏳ Backend is starting up...${NC}"
+        # Wait a bit more for backend to fully start
+        sleep 10
+    fi
+
+    # Start frontend
+    echo -e "${BLUE}🌐 Starting frontend...${NC}"
+    cd ../frontend
+
+    # Check if frontend dependencies are installed
+    if [ ! -d "node_modules" ]; then
+        echo -e "${YELLOW}📦 Installing frontend dependencies...${NC}"
+        npm install
+    fi
+
+    # Start frontend in background
+    echo -e "${GREEN}🚀 Starting frontend on http://localhost:3000${NC}"
+    npm start &
+    FRONTEND_PID=$!
+
+    # Wait for services to be ready
+    echo -e "${BLUE}⏳ Waiting for services to be ready...${NC}"
     sleep 10
+else
+    echo -e "${GREEN}✅ Database-only mode: Backend and frontend will not be started${NC}"
 fi
-
-# Start frontend
-echo -e "${BLUE}🌐 Starting frontend...${NC}"
-cd ../frontend
-
-# Check if frontend dependencies are installed
-if [ ! -d "node_modules" ]; then
-    echo -e "${YELLOW}📦 Installing frontend dependencies...${NC}"
-    npm install
-fi
-
-# Start frontend in background
-echo -e "${GREEN}🚀 Starting frontend on http://localhost:3000${NC}"
-npm start &
-FRONTEND_PID=$!
-
-# Wait for services to be ready
-echo -e "${BLUE}⏳ Waiting for services to be ready...${NC}"
-sleep 10
 
 # Check if services are running
 echo -e "${BLUE}🔍 Checking service status...${NC}"
@@ -210,37 +230,54 @@ else
     cleanup
 fi
 
-# Check backend
-if curl -s http://localhost:8080/health >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Backend is running on http://localhost:8080${NC}"
+# Only check backend and frontend if not in DB_ONLY mode
+if [ "$DB_ONLY" = false ]; then
+    # Check backend
+    if curl -s http://localhost:8080/health >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Backend is running on http://localhost:8080${NC}"
+    else
+        echo -e "${RED}❌ Backend is not responding${NC}"
+        cleanup
+    fi
+
+    # Check frontend
+    if curl -s http://localhost:3000 >/dev/null 2>&1; then
+        echo -e "${GREEN}✅ Frontend is running on http://localhost:3000${NC}"
+    else
+        echo -e "${YELLOW}⏳ Frontend is still starting up...${NC}"
+    fi
+
+    echo ""
+    echo -e "${GREEN}🎉 Development environment is ready!${NC}"
+    echo ""
+    echo -e "${BLUE}🌐 Frontend: ${GREEN}http://localhost:3000${NC}"
+    echo -e "${BLUE}🔧 Backend API: ${GREEN}http://localhost:8080${NC}"
+    echo -e "${BLUE}🗄️  Database: ${GREEN}localhost:5432${NC}"
+    echo -e "${BLUE}   Database Name: ${GREEN}bloodsugar${NC}"
+    echo -e "${BLUE}   Username: ${GREEN}postgres${NC}"
+    echo -e "${BLUE}   Password: ${GREEN}password${NC}"
+    echo ""
+    echo -e "${YELLOW}📝 Press Ctrl+C to stop all services${NC}"
+    echo ""
+
+    # Keep script running and show logs
+    echo -e "${BLUE}📋 Service logs (Ctrl+C to stop):${NC}"
+    echo ""
+
+    # Wait for user to stop
+    wait
 else
-    echo -e "${RED}❌ Backend is not responding${NC}"
-    cleanup
-fi
+    echo ""
+    echo -e "${GREEN}🎉 Database is ready!${NC}"
+    echo ""
+    echo -e "${BLUE}🗄️  Database: ${GREEN}localhost:5432${NC}"
+    echo -e "${BLUE}   Database Name: ${GREEN}bloodsugar${NC}"
+    echo -e "${BLUE}   Username: ${GREEN}postgres${NC}"
+    echo -e "${BLUE}   Password: ${GREEN}password${NC}"
+    echo ""
+    echo -e "${YELLOW}📝 Press Ctrl+C to stop database${NC}"
+    echo ""
 
-# Check frontend
-if curl -s http://localhost:3000 >/dev/null 2>&1; then
-    echo -e "${GREEN}✅ Frontend is running on http://localhost:3000${NC}"
-else
-    echo -e "${YELLOW}⏳ Frontend is still starting up...${NC}"
-fi
-
-echo ""
-echo -e "${GREEN}🎉 Development environment is ready!${NC}"
-echo ""
-echo -e "${BLUE}🌐 Frontend: ${GREEN}http://localhost:3000${NC}"
-echo -e "${BLUE}🔧 Backend API: ${GREEN}http://localhost:8080${NC}"
-echo -e "${BLUE}🗄️  Database: ${GREEN}localhost:5432${NC}"
-echo -e "${BLUE}   Database Name: ${GREEN}bloodsugar${NC}"
-echo -e "${BLUE}   Username: ${GREEN}postgres${NC}"
-echo -e "${BLUE}   Password: ${GREEN}password${NC}"
-echo ""
-echo -e "${YELLOW}📝 Press Ctrl+C to stop all services${NC}"
-echo ""
-
-# Keep script running and show logs
-echo -e "${BLUE}📋 Service logs (Ctrl+C to stop):${NC}"
-echo ""
-
-# Wait for user to stop
-wait 
+    # Keep script running
+    wait
+fi 

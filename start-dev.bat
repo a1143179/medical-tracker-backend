@@ -1,7 +1,15 @@
 @echo off
 setlocal enabledelayedexpansion
 
-echo 🚀 Starting Blood Sugar History Development Environment...
+REM Check command line arguments
+set "DB_ONLY=false"
+if "%1"=="--db-only" set "DB_ONLY=true"
+
+if "%DB_ONLY%"=="true" (
+    echo 🗄️  Starting Blood Sugar History Database Only...
+) else (
+    echo 🚀 Starting Blood Sugar History Development Environment...
+)
 
 REM Check if Docker is running
 docker info >nul 2>&1
@@ -60,31 +68,7 @@ if defined pid (
 REM Check if ports are available and offer to kill processes if needed
 echo 🔍 Checking ports...
 
-REM Check port 3000
-netstat -an | findstr :3000 >nul
-if not errorlevel 1 (
-    echo ❌ Port 3000 is already in use
-    call :kill_process_on_port 3000
-    if errorlevel 1 (
-        pause
-        exit /b 1
-    )
-)
-echo ✅ Port 3000 is available
-
-REM Check port 8080
-netstat -an | findstr :8080 >nul
-if not errorlevel 1 (
-    echo ❌ Port 8080 is already in use
-    call :kill_process_on_port 8080
-    if errorlevel 1 (
-        pause
-        exit /b 1
-    )
-)
-echo ✅ Port 8080 is available
-
-REM Check port 5432
+REM Check port 5432 (always needed for database)
 netstat -an | findstr :5432 >nul
 if not errorlevel 1 (
     echo ❌ Port 5432 is already in use
@@ -96,15 +80,44 @@ if not errorlevel 1 (
 )
 echo ✅ Port 5432 is available
 
+REM Only check other ports if not in DB_ONLY mode
+if "%DB_ONLY%"=="false" (
+    REM Check port 3000
+    netstat -an | findstr :3000 >nul
+    if not errorlevel 1 (
+        echo ❌ Port 3000 is already in use
+        call :kill_process_on_port 3000
+        if errorlevel 1 (
+            pause
+            exit /b 1
+        )
+    )
+    echo ✅ Port 3000 is available
+
+    REM Check port 8080
+    netstat -an | findstr :8080 >nul
+    if not errorlevel 1 (
+        echo ❌ Port 8080 is already in use
+        call :kill_process_on_port 8080
+        if errorlevel 1 (
+            pause
+            exit /b 1
+        )
+    )
+    echo ✅ Port 8080 is available
+)
+
 REM Function to cleanup on exit
 :cleanup
-if defined FRONTEND_PID (
-    taskkill /PID !FRONTEND_PID! /F >nul 2>&1
-    echo ✅ Frontend stopped
-)
-if defined BACKEND_PID (
-    taskkill /PID !BACKEND_PID! /F >nul 2>&1
-    echo ✅ Backend stopped
+if "%DB_ONLY%"=="false" (
+    if defined FRONTEND_PID (
+        taskkill /PID !FRONTEND_PID! /F >nul 2>&1
+        echo ✅ Frontend stopped
+    )
+    if defined BACKEND_PID (
+        taskkill /PID !BACKEND_PID! /F >nul 2>&1
+        echo ✅ Backend stopped
+    )
 )
 if defined POSTGRES_CONTAINER (
     docker stop !POSTGRES_CONTAINER! >nul 2>&1
@@ -139,42 +152,47 @@ if errorlevel 1 (
 echo.
 echo ✅ PostgreSQL is ready
 
-REM Start backend
-echo 🔧 Starting backend...
-cd backend
+REM Only start backend and frontend if not in DB_ONLY mode
+if "%DB_ONLY%"=="false" (
+    REM Start backend
+    echo 🔧 Starting backend...
+    cd backend
 
-REM Check if backend dependencies are installed
-if not exist "bin" (
-    echo 📦 Restoring backend dependencies...
-    dotnet restore
+    REM Check if backend dependencies are installed
+    if not exist "bin" (
+        echo 📦 Restoring backend dependencies...
+        dotnet restore
+    )
+
+    REM Start backend in background
+    echo 🚀 Starting backend on http://localhost:8080
+    start /B dotnet run
+    set BACKEND_PID=%ERRORLEVEL%
+
+    REM Wait a moment for backend to start
+    timeout /t 5 /nobreak >nul
+
+    REM Start frontend
+    echo 🌐 Starting frontend...
+    cd ..\frontend
+
+    REM Check if frontend dependencies are installed
+    if not exist "node_modules" (
+        echo 📦 Installing frontend dependencies...
+        npm install
+    )
+
+    REM Start frontend in background
+    echo 🚀 Starting frontend on http://localhost:3000
+    start /B npm start
+    set FRONTEND_PID=%ERRORLEVEL%
+
+    REM Wait for services to be ready
+    echo ⏳ Waiting for services to be ready...
+    timeout /t 10 /nobreak >nul
+) else (
+    echo ✅ Database-only mode: Backend and frontend will not be started
 )
-
-REM Start backend in background
-echo 🚀 Starting backend on http://localhost:8080
-start /B dotnet run
-set BACKEND_PID=%ERRORLEVEL%
-
-REM Wait a moment for backend to start
-timeout /t 5 /nobreak >nul
-
-REM Start frontend
-echo 🌐 Starting frontend...
-cd ..\frontend
-
-REM Check if frontend dependencies are installed
-if not exist "node_modules" (
-    echo 📦 Installing frontend dependencies...
-    npm install
-)
-
-REM Start frontend in background
-echo 🚀 Starting frontend on http://localhost:3000
-start /B npm start
-set FRONTEND_PID=%ERRORLEVEL%
-
-REM Wait for services to be ready
-echo ⏳ Waiting for services to be ready...
-timeout /t 10 /nobreak >nul
 
 REM Check if services are running
 echo 🔍 Checking service status...
@@ -188,34 +206,48 @@ if errorlevel 1 (
     echo ✅ PostgreSQL is running on localhost:5432
 )
 
-REM Check backend (basic check)
-curl -s http://localhost:8080/health >nul 2>&1
-if errorlevel 1 (
-    echo ⏳ Backend is still starting up...
-) else (
-    echo ✅ Backend is running on http://localhost:8080
-)
+REM Only check backend and frontend if not in DB_ONLY mode
+if "%DB_ONLY%"=="false" (
+    REM Check backend (basic check)
+    curl -s http://localhost:8080/health >nul 2>&1
+    if errorlevel 1 (
+        echo ⏳ Backend is still starting up...
+    ) else (
+        echo ✅ Backend is running on http://localhost:8080
+    )
 
-REM Check frontend (basic check)
-curl -s http://localhost:3000 >nul 2>&1
-if errorlevel 1 (
-    echo ⏳ Frontend is still starting up...
-) else (
-    echo ✅ Frontend is running on http://localhost:3000
-)
+    REM Check frontend (basic check)
+    curl -s http://localhost:3000 >nul 2>&1
+    if errorlevel 1 (
+        echo ⏳ Frontend is still starting up...
+    ) else (
+        echo ✅ Frontend is running on http://localhost:3000
+    )
 
-echo.
-echo 🎉 Development environment is ready!
-echo.
-echo 🌐 Frontend: http://localhost:3000
-echo 🔧 Backend API: http://localhost:8080
-echo 🗄️  Database: localhost:5432
-echo    Database Name: bloodsugar
-echo    Username: postgres
-echo    Password: password
-echo.
-echo 📝 Press any key to stop all services
-echo.
+    echo.
+    echo 🎉 Development environment is ready!
+    echo.
+    echo 🌐 Frontend: http://localhost:3000
+    echo 🔧 Backend API: http://localhost:8080
+    echo 🗄️  Database: localhost:5432
+    echo    Database Name: bloodsugar
+    echo    Username: postgres
+    echo    Password: password
+    echo.
+    echo 📝 Press any key to stop all services
+    echo.
+) else (
+    echo.
+    echo 🎉 Database is ready!
+    echo.
+    echo 🗄️  Database: localhost:5432
+    echo    Database Name: bloodsugar
+    echo    Username: postgres
+    echo    Password: password
+    echo.
+    echo 📝 Press any key to stop database
+    echo.
+)
 
 REM Wait for user input
 pause >nul

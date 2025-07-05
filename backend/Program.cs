@@ -6,8 +6,6 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. config services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-Console.WriteLine($"--- My Connection String from Config: '{connectionString}' ---"); 
-
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
