@@ -2,15 +2,6 @@ using System.Collections;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-// ======================= 调试代码开始 =======================
-Console.WriteLine("--- DUMPING ENVIRONMENT VARIABLES ---");
-var envVars = Environment.GetEnvironmentVariables();
-foreach (DictionaryEntry de in envVars)
-{
-    Console.WriteLine("  {0} = {1}", de.Key, de.Value);
-}
-Console.WriteLine("--- END OF DUMP ---");
-// ======================= 调试代码结束 =======================
 
 // 1. config services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -61,11 +52,17 @@ api.MapGet("/", async (AppDbContext db) => await db.BloodSugarRecords.ToListAsyn
 api.MapGet("/{id}", async (int id, AppDbContext db) =>
     await db.BloodSugarRecords.FindAsync(id) is { } record ? Results.Ok(record) : Results.NotFound());
 
-api.MapPost("/", async (BloodSugarRecord record, AppDbContext db) =>
+api.MapPost("/", async (CreateBloodSugarRecordDto recordDto, AppDbContext db) =>
 {
-    db.BloodSugarRecords.Add(record);
+    var newRecord = new BloodSugarRecord
+    {
+        MeasurementTime = recordDto.MeasurementTime,
+        Level = recordDto.Level,
+        Notes = recordDto.Notes        
+    };
+    db.BloodSugarRecords.Add(newRecord);
     await db.SaveChangesAsync();
-    return Results.Created($"/api/records/{record.Id}", record);
+    return Results.Created($"/api/records/{newRecord.Id}", newRecord);
 });
 
 api.MapPut("/{id}", async (int id, BloodSugarRecord inputRecord, AppDbContext db) =>
