@@ -62,14 +62,14 @@ function App() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentRecord, setCurrentRecord] = useState({ 
     id: null, 
-    measurementTime: '', 
+    measurementTime: new Date().toISOString().substring(0, 16), 
     level: '', 
     notes: '' 
   });
   const [openDialog, setOpenDialog] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
   const [activeTab, setActiveTab] = useState(0);
 
   useEffect(() => {
@@ -143,7 +143,7 @@ function App() {
   
   const resetForm = () => {
     setIsEditing(false);
-    setCurrentRecord({ id: null, measurementTime: '', level: '', notes: '' });
+    setCurrentRecord({ id: null, measurementTime: new Date().toISOString().substring(0, 16), level: '', notes: '' });
     setOpenDialog(false);
   };
 
@@ -191,77 +191,78 @@ function App() {
   const latestRecord = records[0];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: 2 }}>
       {/* Header */}
-      <Box sx={{ mb: 4, textAlign: 'center' }}>
-        <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+      <Box sx={{ mb: 2, textAlign: 'center' }}>
+        <Typography variant="h4" component="h1" gutterBottom sx={{ fontWeight: 'bold', color: 'primary.main' }}>
           Blood Sugar Tracker
         </Typography>
-        <Typography variant="h6" color="text.secondary">
+        <Typography variant="body1" color="text.secondary">
           Monitor and analyze your blood glucose levels
         </Typography>
       </Box>
 
-      {/* Summary Cards */}
-      <Paper elevation={3} sx={{ mb: 4, p: 3 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Card elevation={3} sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Latest Reading
-                </Typography>
-                <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
-                  {latestRecord ? `${latestRecord.level} mmol/L` : 'No data'}
-                </Typography>
-                {latestRecord && (
-                  <Chip 
-                    label={getBloodSugarStatus(latestRecord.level).label}
-                    color={getBloodSugarStatus(latestRecord.level).color}
-                    size="small"
-                    sx={{ mt: 1 }}
-                  />
-                )}
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card elevation={3} sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Average Level
-                </Typography>
-                <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
-                  {averageLevel} mmol/L
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Based on {records.length} readings
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card elevation={3} sx={{ height: '100%' }}>
-              <CardContent>
-                <Typography variant="h6" color="text.secondary" gutterBottom>
-                  Total Records
-                </Typography>
-                <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
-                  {records.length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Blood sugar measurements
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+      {/* Main Content Layout */}
+      <Grid container spacing={2}>
+        {/* Left Sidebar - Summary Cards */}
+        <Grid item xs={12} md={3}>
+          <Paper elevation={3} sx={{ p: 2, height: 'fit-content' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Card elevation={3}>
+                <CardContent sx={{ p: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Latest Reading
+                  </Typography>
+                  <Typography variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
+                    {latestRecord ? `${latestRecord.level} mmol/L` : 'No data'}
+                  </Typography>
+                  {latestRecord && (
+                    <Chip 
+                      label={getBloodSugarStatus(latestRecord.level).label}
+                      color={getBloodSugarStatus(latestRecord.level).color}
+                      size="small"
+                      sx={{ mt: 0.5 }}
+                    />
+                  )}
+                </CardContent>
+              </Card>
+              
+              <Card elevation={3}>
+                <CardContent sx={{ p: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Average Level
+                  </Typography>
+                  <Typography variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
+                    {averageLevel} mmol/L
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Based on {records.length} readings
+                  </Typography>
+                </CardContent>
+              </Card>
+              
+              <Card elevation={3}>
+                <CardContent sx={{ p: 2 }}>
+                  <Typography variant="body2" color="text.secondary" gutterBottom>
+                    Total Records
+                  </Typography>
+                  <Typography variant="h5" component="div" sx={{ fontWeight: 'bold' }}>
+                    {records.length}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Blood sugar measurements
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Box>
+          </Paper>
         </Grid>
-      </Paper>
 
-      {/* Tabs Section */}
-      <Paper elevation={3} sx={{ mb: 4 }}>
+        {/* Right Content - Tabs Section */}
+        <Grid item xs={12} md={9}>
+          <Paper elevation={3} sx={{ mb: 2 }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={activeTab} onChange={handleTabChange} aria-label="blood sugar data tabs">
+          <Tabs value={activeTab} onChange={handleTabChange} aria-label="blood sugar data tabs" size="small">
             <Tab label="Records" />
             <Tab label="Analytics" />
           </Tabs>
@@ -269,11 +270,11 @@ function App() {
         
         {/* Tab Panel 0: Records */}
         {activeTab === 0 && (
-          <Box sx={{ p: 3 }}>
-            <Typography variant="h5" component="h2" gutterBottom>
+          <Box sx={{ p: 2 }}>
+            <Typography variant="h6" component="h2" gutterBottom>
               Blood Sugar Records
             </Typography>
-            <TableContainer>
+            <TableContainer sx={{ minWidth: 800 }}>
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: 'grey.50' }}>
@@ -296,11 +297,11 @@ function App() {
                         <TableCell>
                           {new Date(record.measurementTime).toLocaleString()}
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body1" sx={{ fontWeight: 'bold' }}>
-                            {record.level}
-                          </Typography>
-                        </TableCell>
+                                            <TableCell>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                        {record.level}
+                      </Typography>
+                    </TableCell>
                         <TableCell>
                           <Chip 
                             label={status.label} 
@@ -339,7 +340,7 @@ function App() {
                 page={page}
                 onPageChange={handleChangePage}
                 onRowsPerPageChange={handleChangeRowsPerPage}
-                labelRowsPerPage="Rows per page:"
+                labelRowsPerPage="Records per page:"
                 labelDisplayedRows={({ from, to, count }) => `${from}-${to} of ${count !== -1 ? count : `more than ${to}`}`}
               />
             </TableContainer>
@@ -348,52 +349,48 @@ function App() {
 
         {/* Tab Panel 1: Analytics */}
         {activeTab === 1 && (
-          <Box sx={{ p: 3 }}>
+          <Box sx={{ p: 2, width: '100%' }}>
             {records.length > 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Paper elevation={3} sx={{ p: 3, width: '100%' }}>
-                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Paper elevation={3} sx={{ p: 2 }}>
+                  <Typography variant="body1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <ShowChartIcon color="primary" />
                     Blood Sugar Trends
                   </Typography>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <LineChart data={chartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis domain={[0, 'dataMax + 2']} />
-                      <RechartsTooltip />
-                      <Line 
-                        type="monotone" 
-                        dataKey="level" 
-                        stroke="#1976d2" 
-                        strokeWidth={3}
-                        dot={{ fill: '#1976d2', strokeWidth: 2, r: 4 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
+                  <LineChart width={800} height={300} data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={[0, 'dataMax + 2']} />
+                    <RechartsTooltip />
+                    <Line 
+                      type="monotone" 
+                      dataKey="level" 
+                      stroke="#1976d2" 
+                      strokeWidth={3}
+                      dot={{ fill: '#1976d2', strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
                 </Paper>
-                <Paper elevation={3} sx={{ p: 3, width: '100%' }}>
-                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Paper elevation={3} sx={{ p: 2 }}>
+                  <Typography variant="body1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <BarChartIcon color="primary" />
                     Recent Readings
                   </Typography>
-                  <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={chartData.slice(-10)}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis domain={[0, 'dataMax + 2']} />
-                      <RechartsTooltip />
-                      <Bar dataKey="level" fill="#1976d2" />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <BarChart width={800} height={300} data={chartData.slice(-10)}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis domain={[0, 'dataMax + 2']} />
+                    <RechartsTooltip />
+                    <Bar dataKey="level" fill="#1976d2" />
+                  </BarChart>
                 </Paper>
               </Box>
             ) : (
-              <Box sx={{ textAlign: 'center', py: 4 }}>
-                <Typography variant="h6" color="text.secondary">
+              <Box sx={{ textAlign: 'center', py: 2 }}>
+                <Typography variant="body1" color="text.secondary">
                   No data available for analytics
                 </Typography>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="caption" color="text.secondary">
                   Add some blood sugar records to see charts and analytics
                 </Typography>
               </Box>
@@ -401,6 +398,8 @@ function App() {
           </Box>
         )}
       </Paper>
+        </Grid>
+      </Grid>
 
       {/* Add Record Dialog */}
       <Dialog open={openDialog} onClose={resetForm} maxWidth="sm" fullWidth>
