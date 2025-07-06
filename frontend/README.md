@@ -151,3 +151,42 @@ If you encounter issues:
 - Email verification
 - User profile management
 - Enhanced security features
+
+## Cypress End-to-End Testing
+
+This project uses [Cypress](https://www.cypress.io/) for end-to-end (E2E) testing.
+
+### Prerequisites
+- Node.js and npm installed
+- Backend and frontend servers running locally (see below)
+
+### Running Cypress Locally
+
+1. **Install dependencies:**
+   ```sh
+   npm install
+   ```
+2. **Start the backend and frontend:**
+   - Backend: `dotnet run --project ../backend` (or use your preferred method)
+   - Frontend: `npm start`
+3. **Run Cypress in interactive mode:**
+   ```sh
+   npx cypress open
+   ```
+   or run all tests headlessly:
+   ```sh
+   npm run cypress:run
+   ```
+
+### Running Cypress in CI (GitHub Actions)
+- Cypress tests are automatically run in the GitHub Actions workflow before deployment.
+- Deployment only occurs if all Cypress tests pass.
+
+### Test Files
+- Cypress tests are located in `frontend/cypress/e2e/`
+- Example: `forgot-password.cy.js`, `login.cy.js`, etc.
+
+### Troubleshooting
+- Make sure both backend and frontend are running before starting Cypress.
+- If you need to test email/verification flows, the backend will return codes in the API response in development mode.
+- For more info, see the [Cypress documentation](https://docs.cypress.io/).
