@@ -1,3 +1,5 @@
+/* global cy, Cypress */
+/* eslint-env cypress */
 describe('API Integration', () => {
   beforeEach(() => {
     // Intercept API calls to avoid actual network requests during tests
@@ -10,7 +12,7 @@ describe('API Integration', () => {
   it('should handle login API call', () => {
     cy.visit('/login')
     cy.get('input[name="email"]').type('weiwangfly@hotmail.com')
-    cy.get('input[name="password"]').type('test123')
+    cy.get('input[name="password"]').type('AsDfJkL123')
     cy.get('form').submit()
     
     cy.wait('@login')
@@ -18,14 +20,18 @@ describe('API Integration', () => {
   })
 
   it('should load blood sugar records from API', () => {
-    cy.login('weiwangfly@hotmail.com', 'test123')
+    cy.login('weiwangfly@hotmail.com', 'AsDfJkL123')
+    cy.addBloodSugarRecord(120, 'Test record for list')
     
     cy.wait('@getRecords')
+    cy.url().should('include', '/dashboard')
     cy.get('[data-testid="blood-sugar-records"]').should('be.visible')
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', 'Test record for list')
   })
 
   it('should add new blood sugar record via API', () => {
-    cy.login('weiwangfly@hotmail.com', 'test123')
+    cy.login('weiwangfly@hotmail.com', 'AsDfJkL123')
+    cy.addBloodSugarRecord(120, 'Test record for list')
     
     cy.get('[data-testid="add-record-button"]').click()
     cy.get('input[name="level"]').type('130')

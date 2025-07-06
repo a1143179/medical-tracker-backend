@@ -1,3 +1,5 @@
+/* global cy, Cypress */
+/* eslint-env cypress */
 describe('Registration', () => {
   beforeEach(() => {
     cy.visit('/login')

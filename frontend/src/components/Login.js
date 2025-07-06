@@ -12,17 +12,13 @@ import {
   TextField,
   Tabs,
   Tab,
-  Divider,
   FormControlLabel,
   Checkbox,
   Stepper,
   Step,
   StepLabel,
-  FormControl,
-  Select,
-  MenuItem
+  FormControl
 } from '@mui/material';
-import { Email as EmailIcon, Lock as LockIcon, Person as PersonIcon, Verified as VerifiedIcon, Language as LanguageIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import emailService from '../services/emailService';
@@ -52,8 +48,6 @@ const Login = () => {
     newPassword: '',
     confirmNewPassword: ''
   });
-
-
 
   // Countdown timer for resend code
   useEffect(() => {
@@ -96,8 +90,6 @@ const Login = () => {
   const handleRememberPasswordChange = (e) => {
     setRememberPassword(e.target.checked);
   };
-
-
 
   const handleSendVerificationCode = async () => {
     if (!formData.email) {
@@ -813,7 +805,6 @@ const Login = () => {
                     },
                   }}
                 />
-
 
                 
                 <Button

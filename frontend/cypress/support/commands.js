@@ -1,3 +1,5 @@
+/* global cy, Cypress */
+/* eslint-env cypress */
 // ***********************************************
 // This example commands.js shows you how to
 // create various custom commands and overwrite
@@ -9,16 +11,18 @@
 // ***********************************************
 
 // Custom command to login with test credentials
-Cypress.Commands.add('login', (email = 'weiwangfly@hotmail.com', password = 'test123') => {
+Cypress.Commands.add('login', (email = 'weiwangfly@hotmail.com', password = 'AsDfJkL123') => {
   cy.visit('/login')
   cy.get('input[name="email"]').type(email)
   cy.get('input[name="password"]').type(password)
   cy.get('form').submit()
   cy.url().should('include', '/dashboard')
+  cy.log('Logged in and on dashboard')
+  cy.get('[data-testid="add-record-button"]').should('be.visible')
 })
 
 // Custom command to login with remember me
-Cypress.Commands.add('loginWithRememberMe', (email = 'weiwangfly@hotmail.com', password = 'test123') => {
+Cypress.Commands.add('loginWithRememberMe', (email = 'weiwangfly@hotmail.com', password = 'AsDfJkL123') => {
   cy.visit('/login')
   cy.get('input[name="email"]').type(email)
   cy.get('input[name="password"]').type(password)
@@ -28,7 +32,7 @@ Cypress.Commands.add('loginWithRememberMe', (email = 'weiwangfly@hotmail.com', p
 })
 
 // Custom command to login without remember me
-Cypress.Commands.add('loginWithoutRememberMe', (email = 'weiwangfly@hotmail.com', password = 'test123') => {
+Cypress.Commands.add('loginWithoutRememberMe', (email = 'weiwangfly@hotmail.com', password = 'AsDfJkL123') => {
   cy.visit('/login')
   cy.get('input[name="email"]').type(email)
   cy.get('input[name="password"]').type(password)
@@ -46,11 +50,12 @@ Cypress.Commands.add('logout', () => {
 
 // Custom command to add a blood sugar record
 Cypress.Commands.add('addBloodSugarRecord', (level = 120, notes = 'Test record') => {
-  cy.get('[data-testid="add-record-button"]').click()
-  cy.get('input[name="level"]').type(level)
-  cy.get('input[name="notes"]').type(notes)
-  cy.get('form').submit()
-  cy.get('[data-testid="success-message"]').should('be.visible')
+  cy.url().should('include', '/dashboard');
+  cy.get('[data-testid="add-record-button"]').should('be.visible').click();
+  cy.get('input[name="level"]').type(level);
+  cy.get('input[name="notes"]').type(notes);
+  cy.get('form').submit();
+  cy.get('[data-testid="success-message"]').should('be.visible');
 })
 
 // Custom command to switch language
@@ -70,11 +75,5 @@ Cypress.Commands.add('waitForApi', (method, url, alias) => {
   cy.wait(`@${alias}`)
 })
 
-// Override visit command to handle authentication
-Cypress.Commands.overwrite('visit', (originalFn, url, options) => {
-  // Clear any existing session
-  cy.clearCookies()
-  cy.clearLocalStorage()
-  
-  return originalFn(url, options)
-}) 
+// Removed problematic overwrite of cy.visit to avoid Cypress command queueing errors.
+// If you need to clear cookies/localStorage, do so in your test files' beforeEach hooks. 

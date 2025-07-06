@@ -1,6 +1,8 @@
+/* global cy, Cypress */
+/* eslint-env cypress */
 describe('Session Persistence Tests', () => {
   const testEmail = 'weiwangfly@hotmail.com'
-  const testPassword = 'test123'
+  const testPassword = 'AsDfJkL123'
 
   beforeEach(() => {
     // Clear any existing session before each test

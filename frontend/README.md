@@ -189,3 +189,61 @@ This project uses [Cypress](https://www.cypress.io/) for end-to-end (E2E) testin
 - Make sure both backend and frontend are running before starting Cypress.
 - If you need to test email/verification flows, the backend will return codes in the API response in development mode.
 - For more info, see the [Cypress documentation](https://docs.cypress.io/).
+
+### Common Errors
+
+**Error: Cannot find module 'cypress'**
+
+- This means Cypress is not installed in your project.
+- **Solution:** Run `npm install` (or `npm install cypress --save-dev`) in the `frontend` directory before running Cypress.
+
+If you run `npx cypress open` and do not see your test files (e.g., `authentication.cy.js`):
+- Make sure your test files are in the `cypress/e2e/` directory and named with `.cy.js` (e.g., `authentication.cy.js`).
+- Run Cypress from the `frontend` directory:
+  ```sh
+  cd frontend
+  npx cypress open
+  ```
+- If you have a custom `cypress.config.js`, ensure the `e2e.specPattern` includes your test files.
+- Cypress only shows files matching its spec pattern (by default: `cypress/e2e/**/*.cy.{js,jsx,ts,tsx}`).
+
+**Cypress Command Queueing Error**
+
+If you see an error like:
+
+> Cypress detected that you returned a promise from a command while also invoking one or more cy commands in that promise.
+
+- Do **not** use `async/await` or return Promises in Cypress tests or hooks.
+- Always chain Cypress commands directly.
+
+**Wrong:**
+```js
+beforeEach(async () => {
+  await cy.visit('/login');
+  await cy.clearCookies();
+});
+```
+
+**Right:**
+```js
+beforeEach(() => {
+  cy.clearCookies();
+  cy.visit('/login');
+});
+```
+
+See [Cypress docs on command queueing](https://docs.cypress.io/guides/references/best-practices#Unnecessary-Waiting).
+
+For more, see the [Cypress docs on test discovery](https://docs.cypress.io/guides/core-concepts/writing-and-organizing-tests#Test-Discovery).
+
+### Test Data Setup
+
+- Cypress tests should not assume any records exist in the database.
+- Always create any required records as part of your test setup (e.g., in a `beforeEach` hook or at the start of a test).
+- Example:
+  ```js
+  beforeEach(() => {
+    cy.login('weiwangfly@hotmail.com', 'test123');
+    cy.addBloodSugarRecord(120, 'Test record for list');
+  });
+  ```

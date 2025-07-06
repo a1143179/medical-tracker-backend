@@ -104,15 +104,24 @@ authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbCo
     user.RememberTokenExpiry = tokenExpiry;
     await db.SaveChangesAsync();
     
-    // Set HTTP-only cookie
-    context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
+    // Set HTTP-only cookie with environment-specific options
+    var cookieOptions = new CookieOptions
     {
         HttpOnly = true,
-        Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
-        SameSite = SameSiteMode.Strict,
         Expires = tokenExpiry,
         Path = "/"
-    });
+    };
+    if (app.Environment.IsDevelopment())
+    {
+        cookieOptions.Secure = false;
+        cookieOptions.SameSite = SameSiteMode.Lax;
+    }
+    else
+    {
+        cookieOptions.Secure = true;
+        cookieOptions.SameSite = SameSiteMode.Strict;
+    }
+    context.Response.Cookies.Append("remember_token", rememberToken, cookieOptions);
 
     var userDto = new UserDto
     {

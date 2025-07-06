@@ -26,7 +26,7 @@ const EmailUsageMonitor = () => {
 
   useEffect(() => {
     fetchUsage();
-  }, []);
+  }, [fetchUsage]);
 
   if (loading) {
     return <Alert variant="info">{t('loadingEmailUsage')}</Alert>;

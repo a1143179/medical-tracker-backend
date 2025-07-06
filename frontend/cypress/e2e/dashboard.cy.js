@@ -1,7 +1,11 @@
+/* global cy, Cypress */
+/* eslint-env cypress */
 describe('Dashboard', () => {
   beforeEach(() => {
     // Login before each test
     cy.login('weiwangfly@hotmail.com', 'test123')
+    // Ensure at least one record exists
+    cy.addBloodSugarRecord(120, 'Test record for list')
   })
 
   it('should display dashboard after login', () => {
@@ -11,6 +15,7 @@ describe('Dashboard', () => {
 
   it('should display blood sugar records', () => {
     cy.get('[data-testid="blood-sugar-records"]').should('be.visible')
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', 'Test record for list')
   })
 
   it('should have add record functionality', () => {

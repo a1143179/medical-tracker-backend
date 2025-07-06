@@ -1,3 +1,5 @@
+/* global cy, Cypress */
+/* eslint-env cypress */
 describe('Forgot Password', () => {
   beforeEach(() => {
     cy.visit('/login');

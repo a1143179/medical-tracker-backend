@@ -78,6 +78,7 @@ const Header = () => {
             {/* Language Selector */}
             <FormControl size="small" sx={{ mr: 2, minWidth: { xs: 80, md: 120 } }}>
               <Select
+                data-testid="language-selector"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
                 startAdornment={<Language sx={{ mr: { xs: 0.5, md: 1 }, color: 'white', fontSize: { xs: '1.2rem', md: '1.5rem' } }} />}

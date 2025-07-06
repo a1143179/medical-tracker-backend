@@ -26,7 +26,6 @@ import {
   Snackbar,
   Tooltip,
   Chip,
-  Divider,
   TablePagination,
   Tabs,
   Tab,
@@ -42,7 +41,6 @@ import {
   Remove as RemoveIcon,
   BarChart as BarChartIcon,
   ShowChart as ShowChartIcon,
-  Dashboard as DashboardIcon,
   Analytics as AnalyticsIcon,
   AddCircle as AddCircleIcon
 } from '@mui/icons-material';
@@ -219,8 +217,6 @@ function Dashboard() {
     setActiveTab(newValue);
   };
 
-
-
   const handleMobilePageChange = (page) => {
     setMobilePage(page);
     
@@ -228,10 +224,6 @@ function Dashboard() {
     if (page !== 'add') {
       resetForm();
     }
-  };
-
-  const handleLogout = () => {
-    logout();
   };
 
   const getBloodSugarStatus = (level) => {
@@ -285,8 +277,6 @@ function Dashboard() {
     : 0;
 
   const latestRecord = records[0];
-
-
 
   // Mobile Dashboard Content
   const MobileDashboard = () => (
