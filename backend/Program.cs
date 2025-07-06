@@ -87,26 +87,25 @@ authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbCo
         return Results.BadRequest(new { message = "Invalid email or password" });
     }
 
-    // Handle remember me functionality
-    if (loginDto.RememberMe)
+    // Always create a session token, but with different expiration times
+    var rememberToken = GenerateRememberToken();
+    var tokenExpiry = loginDto.RememberMe 
+        ? DateTime.UtcNow.AddMonths(3) // 3 months for "remember me"
+        : DateTime.UtcNow.AddHours(24); // 24 hours for regular login
+    
+    user.RememberToken = rememberToken;
+    user.RememberTokenExpiry = tokenExpiry;
+    await db.SaveChangesAsync();
+    
+    // Set HTTP-only cookie
+    context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
     {
-        var rememberToken = GenerateRememberToken();
-        var tokenExpiry = DateTime.UtcNow.AddMonths(3); // 3 months
-        
-        user.RememberToken = rememberToken;
-        user.RememberTokenExpiry = tokenExpiry;
-        await db.SaveChangesAsync();
-        
-        // Set HTTP-only cookie
-        context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
-            SameSite = SameSiteMode.Strict,
-            Expires = tokenExpiry,
-            Path = "/"
-        });
-    }
+        HttpOnly = true,
+        Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
+        SameSite = SameSiteMode.Strict,
+        Expires = tokenExpiry,
+        Path = "/"
+    });
 
     var userDto = new UserDto
     {
