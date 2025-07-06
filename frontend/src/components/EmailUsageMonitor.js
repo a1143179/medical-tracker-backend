@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, ProgressBar, Badge } from 'react-bootstrap';
+import { useLanguage } from '../contexts/LanguageContext';
 import emailService from '../services/emailService';
 
 const EmailUsageMonitor = () => {
+  const { t } = useLanguage();
   const [usage, setUsage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -15,7 +17,7 @@ const EmailUsageMonitor = () => {
       const usageData = await emailService.getEmailUsage();
       setUsage(usageData);
     } catch (err) {
-      setError('Failed to load email usage');
+      setError(t('failedToLoadEmailUsage'));
       console.error('Usage fetch error:', err);
     } finally {
       setLoading(false);
@@ -27,7 +29,7 @@ const EmailUsageMonitor = () => {
   }, []);
 
   if (loading) {
-    return <Alert variant="info">Loading email usage...</Alert>;
+    return <Alert variant="info">{t('loadingEmailUsage')}</Alert>;
   }
 
   if (error) {
@@ -50,7 +52,7 @@ const EmailUsageMonitor = () => {
   };
 
   const formatResetTime = (timestamp) => {
-    if (!timestamp) return 'Unknown';
+    if (!timestamp) return t('unknown');
     const date = new Date(timestamp);
     return date.toLocaleString();
   };
@@ -60,10 +62,10 @@ const EmailUsageMonitor = () => {
       <div className="d-flex justify-content-between align-items-center mb-2">
         <h6 className="mb-0">
           <i className="fas fa-envelope me-2"></i>
-          Email Usage Today
+          {t('emailUsageToday')}
         </h6>
         <Badge bg={getVariant()}>
-          {sent}/{limit} emails
+          {t('emailsSent', { sent, limit })}
         </Badge>
       </div>
       
@@ -76,10 +78,10 @@ const EmailUsageMonitor = () => {
       
       <div className="d-flex justify-content-between align-items-center">
         <small className="text-muted">
-          {remaining} emails remaining
+          {t('emailsRemaining', { remaining })}
         </small>
         <small className="text-muted">
-          Resets: {formatResetTime(resetTime)}
+          {t('resetsAt', { time: formatResetTime(resetTime) })}
         </small>
       </div>
       
@@ -87,7 +89,7 @@ const EmailUsageMonitor = () => {
         <Alert variant="warning" className="mt-2 mb-0 py-2">
           <small>
             <i className="fas fa-exclamation-triangle me-1"></i>
-            You're approaching the daily email limit. Consider upgrading your plan.
+            {t('approachingEmailLimit')}
           </small>
         </Alert>
       )}
@@ -96,7 +98,7 @@ const EmailUsageMonitor = () => {
         <Alert variant="danger" className="mt-2 mb-0 py-2">
           <small>
             <i className="fas fa-ban me-1"></i>
-            Daily email limit reached. Emails will be blocked until tomorrow.
+            {t('emailLimitReached')}
           </small>
         </Alert>
       )}

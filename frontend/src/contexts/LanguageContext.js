@@ -148,6 +148,53 @@ export const LanguageProvider = ({ children }) => {
       // Header
       logout: 'Logout',
       welcome: 'Welcome,',
+      
+      // Login/Register
+      login: 'Login',
+      register: 'Register',
+      email: 'Email',
+      password: 'Password',
+      confirmPassword: 'Confirm Password',
+      rememberPassword: 'Remember Password',
+      signIn: 'Sign In',
+      createAccount: 'Create Account',
+      sendVerificationCode: 'Send Verification Code',
+      verificationCode: 'Verification Code',
+      verifyCode: 'Verify Code',
+      resendCode: 'Resend Code',
+      resendInSeconds: 'Resend ({seconds}s)',
+      enterEmailFirst: 'Please enter your email address first',
+      emailVerifiedSuccessfully: 'Email verified successfully!',
+      emailVerifiedSetPassword: 'Email verified! Now set your password',
+      passwordMinLength: 'Password must be at least 6 characters long',
+      passwordsDoNotMatch: 'Passwords do not match',
+      passwordTooShort: 'Password must be at least 6 characters long',
+      userAlreadyExists: 'User with this email already exists',
+      invalidEmailOrPassword: 'Invalid email or password',
+      registrationSuccessful: 'Registration successful! You can now log in.',
+      verificationCodeSent: 'Verification code sent',
+      enterVerificationCode: 'Enter the 6-digit verification code sent to {email}',
+      sending: 'Sending...',
+      yourDataIsSecure: 'Your data is secure and private. We only store your basic account information.',
+      enterEmail: 'Enter Email',
+      verifyEmail: 'Verify Email',
+      setPassword: 'Set Password',
+      appDescription: 'Track your blood sugar levels and monitor your health with our comprehensive dashboard.',
+      appInitials: 'BS',
+      
+      // Email Usage Monitor
+      emailUsageToday: 'Email Usage Today',
+      emailsSent: '{sent}/{limit} emails',
+      emailsRemaining: '{remaining} emails remaining',
+      resetsAt: 'Resets: {time}',
+      unknown: 'Unknown',
+      loadingEmailUsage: 'Loading email usage...',
+      failedToLoadEmailUsage: 'Failed to load email usage',
+      approachingEmailLimit: "You're approaching the daily email limit. Consider upgrading your plan.",
+      emailLimitReached: 'Daily email limit reached. Emails will be blocked until tomorrow.',
+      
+      // Common
+      loading: 'Loading...',
     },
     zh: {
       // App Bar
@@ -223,6 +270,53 @@ export const LanguageProvider = ({ children }) => {
       // Header
       logout: '退出登录',
       welcome: '欢迎,',
+      
+      // Login/Register
+      login: '登录',
+      register: '注册',
+      email: '邮箱',
+      password: '密码',
+      confirmPassword: '确认密码',
+      rememberPassword: '记住密码',
+      signIn: '登录',
+      createAccount: '创建账户',
+      sendVerificationCode: '发送验证码',
+      verificationCode: '验证码',
+      verifyCode: '验证',
+      resendCode: '重新发送',
+      resendInSeconds: '重新发送 ({seconds}s)',
+      enterEmailFirst: '请先输入您的邮箱地址',
+      emailVerifiedSuccessfully: '邮箱验证成功！',
+      emailVerifiedSetPassword: '邮箱已验证！现在设置您的密码',
+      passwordMinLength: '密码至少需要6个字符',
+      passwordsDoNotMatch: '密码不匹配',
+      passwordTooShort: '密码至少需要6个字符',
+      userAlreadyExists: '该邮箱的用户已存在',
+      invalidEmailOrPassword: '邮箱或密码无效',
+      registrationSuccessful: '注册成功！您现在可以登录了。',
+      verificationCodeSent: '验证码已发送',
+      enterVerificationCode: '请输入发送到 {email} 的6位验证码',
+      sending: '发送中...',
+      yourDataIsSecure: '您的数据是安全且私密的。我们只存储您的基本账户信息。',
+      enterEmail: '输入邮箱',
+      verifyEmail: '验证邮箱',
+      setPassword: '设置密码',
+      appDescription: '追踪您的血糖水平并通过我们的综合仪表板监控您的健康状况。',
+      appInitials: '血糖',
+      
+      // Email Usage Monitor
+      emailUsageToday: '今日邮件使用量',
+      emailsSent: '{sent}/{limit} 封邮件',
+      emailsRemaining: '剩余 {remaining} 封邮件',
+      resetsAt: '重置时间: {time}',
+      unknown: '未知',
+      loadingEmailUsage: '正在加载邮件使用量...',
+      failedToLoadEmailUsage: '加载邮件使用量失败',
+      approachingEmailLimit: '您正在接近每日邮件限制。请考虑升级您的计划。',
+      emailLimitReached: '已达到每日邮件限制。邮件将被阻止直到明天。',
+      
+      // Common
+      loading: '加载中...',
     }
   };
 

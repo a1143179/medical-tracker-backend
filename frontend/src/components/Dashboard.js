@@ -53,7 +53,8 @@ import {
   Dashboard as DashboardIcon,
   Analytics as AnalyticsIcon,
   AddCircle as AddCircleIcon,
-  Language as LanguageIcon
+  Language as LanguageIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -71,7 +72,7 @@ import {
 const API_URL = '/api/records';
 
 function Dashboard() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -243,6 +244,11 @@ function Dashboard() {
     }
   };
 
+  const handleLogout = () => {
+    setMobileOpen(false);
+    logout();
+  };
+
   const getBloodSugarStatus = (level) => {
     if (level < 3.9) return { label: t('low'), color: 'error' };
     if (level > 10.0) return { label: t('high'), color: 'error' };
@@ -344,6 +350,15 @@ function Dashboard() {
               fontWeight: language === 'zh' ? 'bold' : 'normal'
             }}
           />
+        </ListItem>
+      </List>
+      <Divider />
+      <List>
+        <ListItem button onClick={handleLogout}>
+          <ListItemIcon>
+            <LogoutIcon />
+          </ListItemIcon>
+          <ListItemText primary={t('logout')} />
         </ListItem>
       </List>
     </Box>

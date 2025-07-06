@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LanguageProvider } from './contexts/LanguageContext';
+import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import Header from './components/Header';
@@ -62,6 +62,7 @@ const AppLayout = () => {
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
+  const { t } = useLanguage();
 
   if (loading) {
     return (
@@ -71,7 +72,7 @@ const ProtectedRoute = ({ children }) => {
         alignItems: 'center', 
         height: '100vh' 
       }}>
-        <div>Loading...</div>
+        <div>{t('loading')}</div>
       </div>
     );
   }

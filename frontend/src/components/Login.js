@@ -17,14 +17,19 @@ import {
   Checkbox,
   Stepper,
   Step,
-  StepLabel
+  StepLabel,
+  FormControl,
+  Select,
+  MenuItem
 } from '@mui/material';
-import { Email as EmailIcon, Lock as LockIcon, Person as PersonIcon, Verified as VerifiedIcon } from '@mui/icons-material';
+import { Email as EmailIcon, Lock as LockIcon, Person as PersonIcon, Verified as VerifiedIcon, Language as LanguageIcon } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import emailService from '../services/emailService';
 
 const Login = () => {
   const { login, register, loading } = useAuth();
+  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState(null);
@@ -82,7 +87,7 @@ const Login = () => {
 
   const handleSendVerificationCode = async () => {
     if (!formData.email) {
-      setError('Please enter your email address first');
+      setError(t('enterEmailFirst'));
       return;
     }
 
@@ -96,7 +101,7 @@ const Login = () => {
       // Use email service to send verification code
       const result = await emailService.sendVerificationCode(formData.email, code);
       
-      setSuccess(result.message);
+      setSuccess(t('verificationCodeSent'));
       setRegistrationStep(1);
       setCountdown(60); // 60 seconds countdown
     } catch (error) {
@@ -110,7 +115,7 @@ const Login = () => {
     try {
       setError(null);
       await emailService.verifyCode(formData.email, verificationCode);
-      setSuccess('Email verified successfully!');
+      setSuccess(t('emailVerifiedSuccessfully'));
       setRegistrationStep(2);
     } catch (error) {
       setError(error.message);
@@ -164,9 +169,9 @@ const Login = () => {
 
   const getRegistrationSteps = () => {
     return [
-      'Enter Email',
-      'Verify Email',
-      'Set Password'
+      t('enterEmail'),
+      t('verifyEmail'),
+      t('setPassword')
     ];
   };
 
@@ -203,17 +208,50 @@ const Login = () => {
           }}
         >
           <Typography variant="h3" color="primary" sx={{ fontWeight: 'bold' }}>
-            BS
+            {t('appInitials')}
           </Typography>
         </Avatar>
         
         <Typography component="h1" variant="h4" gutterBottom sx={{ fontWeight: 'bold', mb: 2 }}>
-          Blood Sugar Tracker
+          {t('appTitle')}
         </Typography>
         
         <Typography variant="body1" sx={{ mb: 4, textAlign: 'center', opacity: 0.9 }}>
-          Track your blood sugar levels and monitor your health with our comprehensive dashboard.
+          {t('appDescription')}
         </Typography>
+
+        {/* Language Switcher */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          mb: 3,
+          position: 'absolute',
+          top: { xs: 8, sm: 16 },
+          right: { xs: 8, sm: 16 }
+        }}>
+          <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 120 } }}>
+            <Select
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              startAdornment={<LanguageIcon sx={{ mr: 1, color: 'white' }} />}
+              sx={{ 
+                color: 'white',
+                '& .MuiSelect-icon': { color: 'white' },
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
+                '& .MuiSelect-select': { py: 0.5 }
+              }}
+              MenuProps={{
+                PaperProps: {
+                  sx: { mt: 1 }
+                }
+              }}
+            >
+              <MenuItem value="en">{t('english')}</MenuItem>
+              <MenuItem value="zh">{t('chinese')}</MenuItem>
+            </Select>
+          </FormControl>
+        </Box>
 
         <Box sx={{ width: '100%', mb: 3 }}>
           <Tabs 
@@ -233,8 +271,8 @@ const Login = () => {
               }
             }}
           >
-            <Tab label="Login" />
-            <Tab label="Register" />
+            <Tab label={t('login')} />
+            <Tab label={t('register')} />
           </Tabs>
         </Box>
 
@@ -289,7 +327,7 @@ const Login = () => {
           <Box component="form" onSubmit={handleLogin} sx={{ width: '100%' }}>
             <TextField
               fullWidth
-              label="Email"
+              label={t('email')}
               type="email"
               name="email"
               value={formData.email}
@@ -326,7 +364,7 @@ const Login = () => {
             
             <TextField
               fullWidth
-              label="Password"
+              label={t('password')}
               type="password"
               name="password"
               value={formData.password}
@@ -374,7 +412,7 @@ const Login = () => {
                   }}
                 />
               }
-              label="Remember Password"
+              label={t('rememberPassword')}
               sx={{
                 mt: 1,
                 '& .MuiFormControlLabel-label': {
@@ -405,7 +443,7 @@ const Login = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              Sign In
+              {t('signIn')}
             </Button>
           </Box>
         )}
@@ -418,7 +456,7 @@ const Login = () => {
               <Box>
                 <TextField
                   fullWidth
-                  label="Email"
+                  label={t('email')}
                   type="email"
                   name="email"
                   value={formData.email}
@@ -481,7 +519,7 @@ const Login = () => {
                     transition: 'all 0.3s ease',
                   }}
                 >
-                  {isSendingCode ? 'Sending...' : 'Send Verification Code'}
+                  {isSendingCode ? t('sending') : t('sendVerificationCode')}
                 </Button>
               </Box>
             )}
@@ -490,12 +528,12 @@ const Login = () => {
             {registrationStep === 1 && (
               <Box>
                 <Typography variant="body2" sx={{ mb: 2, textAlign: 'center', opacity: 0.9 }}>
-                  Enter the 6-digit verification code sent to {formData.email}
+                  {t('enterVerificationCode', { email: formData.email })}
                 </Typography>
                 
                 <TextField
                   fullWidth
-                  label="Verification Code"
+                  label={t('verificationCode')}
                   type="text"
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
@@ -548,7 +586,7 @@ const Login = () => {
                       },
                     }}
                   >
-                    {countdown > 0 ? `Resend (${countdown}s)` : 'Resend Code'}
+                    {countdown > 0 ? t('resendInSeconds', { seconds: countdown }) : t('resendCode')}
                   </Button>
                   
                   <Button
@@ -568,7 +606,7 @@ const Login = () => {
                       },
                     }}
                   >
-                    Verify Code
+                    {t('verifyCode')}
                   </Button>
                 </Box>
               </Box>
@@ -578,12 +616,12 @@ const Login = () => {
             {registrationStep === 2 && (
               <Box component="form" onSubmit={handleRegister}>
                 <Typography variant="body2" sx={{ mb: 2, textAlign: 'center', opacity: 0.9 }}>
-                  Email verified! Now set your password
+                  {t('emailVerifiedSetPassword')}
                 </Typography>
                 
                 <TextField
                   fullWidth
-                  label="Password"
+                  label={t('password')}
                   type="password"
                   name="password"
                   value={formData.password}
@@ -591,7 +629,7 @@ const Login = () => {
                   required
                   margin="normal"
                   InputLabelProps={{ shrink: true }}
-                  helperText="Password must be at least 6 characters long"
+                  helperText={t('passwordMinLength')}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       '& fieldset': {
@@ -624,7 +662,7 @@ const Login = () => {
 
                 <TextField
                   fullWidth
-                  label="Confirm Password"
+                  label={t('confirmPassword')}
                   type="password"
                   name="confirmPassword"
                   value={formData.confirmPassword}
@@ -682,7 +720,7 @@ const Login = () => {
                     transition: 'all 0.3s ease',
                   }}
                 >
-                  Create Account
+                  {t('createAccount')}
                 </Button>
               </Box>
             )}
@@ -690,7 +728,7 @@ const Login = () => {
         )}
         
         <Typography variant="body2" sx={{ mt: 3, opacity: 0.8, textAlign: 'center' }}>
-          Your data is secure and private. We only store your basic account information.
+          {t('yourDataIsSecure')}
         </Typography>
       </Paper>
     </Container>
