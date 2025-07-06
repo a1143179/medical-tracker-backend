@@ -58,8 +58,7 @@ src/
 1. **Email/Password**: Users sign in with their credentials
 2. **Remember Password**: Optional credential saving for convenience
 3. **Immediate Redirect**: Automatically navigates to dashboard upon successful login
-4. **Session Management**: User data stored in localStorage
-5. **Protected Routes**: All dashboard features require authentication
+4. **Protected Routes**: All dashboard features require authentication
 
 ### User Experience Features
 - **Tabbed Interface**: Switch between Login and Register forms
