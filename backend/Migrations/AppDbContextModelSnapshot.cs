@@ -45,7 +45,7 @@ namespace backend.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("BloodSugarRecords");
+                    b.ToTable("BloodSugarRecords", (string)null);
                 });
 
             modelBuilder.Entity("User", b =>
@@ -97,7 +97,7 @@ namespace backend.Migrations
                     b.HasIndex("Email")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("BloodSugarRecord", b =>
