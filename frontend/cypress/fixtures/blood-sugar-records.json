@@ -1,0 +1,23 @@
+[
+  {
+    "id": 1,
+    "measurementTime": "2024-01-01T08:00:00Z",
+    "level": 120,
+    "notes": "Morning reading",
+    "userId": 1
+  },
+  {
+    "id": 2,
+    "measurementTime": "2024-01-01T12:00:00Z",
+    "level": 135,
+    "notes": "After lunch",
+    "userId": 1
+  },
+  {
+    "id": 3,
+    "measurementTime": "2024-01-01T18:00:00Z",
+    "level": 110,
+    "notes": "Evening reading",
+    "userId": 1
+  }
+] 

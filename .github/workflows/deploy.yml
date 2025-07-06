@@ -40,6 +40,10 @@ jobs:
       working-directory: ./frontend
       run: npm run build
 
+    - name: Run Cypress tests
+      working-directory: ./frontend
+      run: npm run cypress:run
+
     - name: Restore backend dependencies
       working-directory: ./backend
       run: dotnet restore
