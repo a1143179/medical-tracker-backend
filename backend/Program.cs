@@ -35,7 +35,10 @@ if (app.Environment.IsDevelopment())
 }
 
 // React files
-app.UseDefaultFiles();
+app.UseDefaultFiles(new DefaultFilesOptions
+{
+    DefaultFileNames = new List<string> { "index.html" }
+});
 app.UseStaticFiles();
 
 // database migration
@@ -87,25 +90,36 @@ authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbCo
         return Results.BadRequest(new { message = "Invalid email or password" });
     }
 
-    // Always create a session token, but with different expiration times
-    var rememberToken = GenerateRememberToken();
-    var tokenExpiry = loginDto.RememberMe 
-        ? DateTime.UtcNow.AddMonths(3) // 3 months for "remember me"
-        : DateTime.UtcNow.AddHours(24); // 24 hours for regular login
-    
-    user.RememberToken = rememberToken;
-    user.RememberTokenExpiry = tokenExpiry;
-    await db.SaveChangesAsync();
-    
-    // Set HTTP-only cookie
-    context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
+    // Handle remember me functionality
+    if (loginDto.RememberMe)
     {
-        HttpOnly = true,
-        Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
-        SameSite = SameSiteMode.Strict,
-        Expires = tokenExpiry,
-        Path = "/"
-    });
+        var rememberToken = GenerateRememberToken();
+        var tokenExpiry = DateTime.UtcNow.AddMonths(3); // 3 months for "remember me"
+        
+        user.RememberToken = rememberToken;
+        user.RememberTokenExpiry = tokenExpiry;
+        await db.SaveChangesAsync();
+        
+        // Set HTTP-only cookie
+        context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
+            SameSite = SameSiteMode.Strict,
+            Expires = tokenExpiry,
+            Path = "/"
+        });
+    }
+    else
+    {
+        // Clear any existing remember token and cookie
+        user.RememberToken = null;
+        user.RememberTokenExpiry = null;
+        await db.SaveChangesAsync();
+        
+        // Delete the remember token cookie
+        context.Response.Cookies.Delete("remember_token");
+    }
 
     var userDto = new UserDto
     {
@@ -466,6 +480,32 @@ api.MapDelete("/{id}", async (int id, HttpContext context) =>
     db.BloodSugarRecords.Remove(record);
     await db.SaveChangesAsync();
     return Results.NoContent();
+});
+
+// Fallback route for client-side routing - serve React app for all unmatched routes
+app.MapFallback(async context =>
+{
+    var path = context.Request.Path.Value;
+    
+    // Skip API routes
+    if (path != null && path.StartsWith("/api"))
+    {
+        context.Response.StatusCode = 404;
+        return;
+    }
+    
+    // Serve index.html for all other routes
+    context.Response.ContentType = "text/html";
+    var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
+    if (File.Exists(indexPath))
+    {
+        var content = await File.ReadAllTextAsync(indexPath);
+        await context.Response.WriteAsync(content);
+    }
+    else
+    {
+        context.Response.StatusCode = 404;
+    }
 });
 
 app.Run();

@@ -61,6 +61,12 @@ const AppLayout = () => {
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
           } 
         />
+        <Route 
+          path="*" 
+          element={
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+          } 
+        />
       </Routes>
     </>
   );
