@@ -1,70 +1,153 @@
-# Getting Started with Create React App
+# Blood Sugar Tracker Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based single page application for tracking blood sugar levels with email authentication.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Single Page Application (SPA)**: Built with React Router for seamless navigation
+- **Email Authentication**: Secure login and registration using email/password
+- **Three-Step Registration**: Email verification with code confirmation
+- **Blood Sugar Tracking**: Add, edit, and delete blood sugar records
+- **Analytics Dashboard**: Visual charts and statistics
+- **Responsive Design**: Works on desktop and mobile devices
+- **Real-time Updates**: AJAX-based data operations
 
-### `npm start`
+## Setup Instructions
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+### 1. Install Dependencies
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+```bash
+npm install
+```
 
-### `npm test`
+### 2. Start the Development Server
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```bash
+npm start
+```
 
-### `npm run build`
+The application will be available at `http://localhost:3000`
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Application Structure
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```
+src/
+├── components/
+│   ├── Dashboard.js      # Main blood sugar tracking interface
+│   ├── Header.js         # Navigation header with user info
+│   ├── Login.js          # Email login and registration page
+│   ├── EmailUsageMonitor.js # Email usage tracking component
+│   └── ProtectedRoute.js # Route protection component
+├── contexts/
+│   └── AuthContext.js    # Authentication state management
+├── services/
+│   └── emailService.js   # Email verification service
+└── App.js               # Main application with routing
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+## Authentication Flow
 
-### `npm run eject`
+### Registration Process
+1. **Email Entry**: User enters email address
+2. **Code Verification**: System sends 6-digit verification code
+3. **Password Setup**: User sets password after email verification
+4. **Success Feedback**: Shows "Registration successful! You can now login."
+5. **Auto-Switch**: Automatically switches to login tab after 1.5 seconds
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Login Process
+1. **Email/Password**: Users sign in with their credentials
+2. **Remember Password**: Optional credential saving for convenience
+3. **Immediate Redirect**: Automatically navigates to dashboard upon successful login
+4. **Session Management**: User data stored in localStorage
+5. **Protected Routes**: All dashboard features require authentication
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### User Experience Features
+- **Tabbed Interface**: Switch between Login and Register forms
+- **Form Validation**: Email format validation and password requirements
+- **Error Handling**: Clear error messages for validation failures
+- **Success Feedback**: Registration success messages with auto-tab switching
+- **Immediate Navigation**: Login success instantly redirects to dashboard
+- **Email Usage Monitoring**: Track daily email sending limits
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## User Interface
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Login/Registration Page
+- **Tabbed Interface**: Switch between Login and Register forms
+- **Three-Step Registration**: Email → Verification → Password setup
+- **Form Validation**: Email format validation and password requirements
+- **Error Handling**: Clear error messages for validation failures
+- **Success Feedback**: Confirmation messages with auto-tab switching
+- **Remember Password**: Optional credential saving
 
-## Learn More
+### Dashboard
+- **User-Specific Records**: Each user only sees their own blood sugar records
+- **Secure Data Access**: Users can only view, edit, and delete their own data
+- **Real-time Updates**: Changes are immediately reflected in the interface
+- **Data Privacy**: Complete isolation between user accounts
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+### Data Security
+- **User Authentication**: All records are tied to authenticated users
+- **API Protection**: Backend validates user ownership before any operations
+- **Data Isolation**: Users cannot access other users' records
+- **Session Management**: Secure user sessions with localStorage
+- **User Header**: Shows user name and email with logout option
+- **Blood Sugar Records**: Table view with pagination and sorting
+- **Analytics**: Charts showing trends and statistics
+- **Add/Edit Records**: Modal dialogs for data entry
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## API Integration
 
-### Code Splitting
+The frontend communicates with the backend API at `/api/records` for:
+- Fetching blood sugar records
+- Adding new records
+- Updating existing records
+- Deleting records
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+All API calls use AJAX (fetch API) for seamless user experience.
 
-### Analyzing the Bundle Size
+## Development
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Available Scripts
 
-### Making a Progressive Web App
+- `npm start` - Start development server
+- `npm build` - Build for production
+- `npm test` - Run tests
+- `npm eject` - Eject from Create React App
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### Environment Variables
 
-### Advanced Configuration
+Create a `.env` file in the frontend directory for environment-specific configuration:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+```
+REACT_APP_API_URL=http://localhost:8080
+```
 
-### Deployment
+## Security Notes
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+- User credentials are validated client-side for demo purposes
+- In production, implement proper backend authentication
+- Consider using JWT tokens for secure API communication
+- User authentication state is managed client-side with React Context
 
-### `npm run build` fails to minify
+## Troubleshooting
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+### Common Issues
+
+1. **API Connection Error**: Make sure the backend server is running on port 8080
+2. **CORS Issues**: The proxy configuration in package.json should handle this
+3. **Form Validation**: Ensure email format is valid and password meets requirements
+
+### Getting Help
+
+If you encounter issues:
+1. Check the browser console for error messages
+2. Verify the backend API is accessible
+3. Ensure all dependencies are installed correctly
+
+## Future Enhancements
+
+- Backend integration for proper user authentication
+- Password reset functionality
+- Email verification
+- User profile management
+- Enhanced security features
