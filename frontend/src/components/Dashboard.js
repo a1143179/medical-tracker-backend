@@ -30,13 +30,6 @@ import {
   TablePagination,
   Tabs,
   Tab,
-  AppBar,
-  Toolbar,
-  Drawer,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -49,12 +42,9 @@ import {
   Remove as RemoveIcon,
   BarChart as BarChartIcon,
   ShowChart as ShowChartIcon,
-  Menu as MenuIcon,
   Dashboard as DashboardIcon,
   Analytics as AnalyticsIcon,
-  AddCircle as AddCircleIcon,
-  Language as LanguageIcon,
-  Logout as LogoutIcon
+  AddCircle as AddCircleIcon
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -92,7 +82,6 @@ function Dashboard() {
   const [activeTab, setActiveTab] = useState(0);
   
   // Mobile navigation state
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [mobilePage, setMobilePage] = useState('dashboard'); // 'dashboard', 'analytics', 'add'
 
   const showSnackbar = useCallback((message, severity) => {
@@ -230,13 +219,10 @@ function Dashboard() {
     setActiveTab(newValue);
   };
 
-  const handleMobileMenuToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
+
 
   const handleMobilePageChange = (page) => {
     setMobilePage(page);
-    setMobileOpen(false);
     
     // Reset form when navigating away from add page
     if (page !== 'add') {
@@ -245,7 +231,6 @@ function Dashboard() {
   };
 
   const handleLogout = () => {
-    setMobileOpen(false);
     logout();
   };
 
@@ -301,75 +286,11 @@ function Dashboard() {
 
   const latestRecord = records[0];
 
-  // Mobile Navigation Drawer
-  const mobileDrawer = (
-    <Box>
-      <Toolbar />
-      <List>
-        <ListItem button onClick={() => handleMobilePageChange('dashboard')}>
-          <ListItemIcon>
-            <DashboardIcon />
-          </ListItemIcon>
-          <ListItemText primary={t('dashboard')} />
-        </ListItem>
-        <ListItem button onClick={() => handleMobilePageChange('analytics')}>
-          <ListItemIcon>
-            <AnalyticsIcon />
-          </ListItemIcon>
-          <ListItemText primary={t('analytics')} />
-        </ListItem>
-        <ListItem button onClick={() => handleMobilePageChange('add')}>
-          <ListItemIcon>
-            <AddCircleIcon />
-          </ListItemIcon>
-          <ListItemText primary={t('addNewRecord')} />
-        </ListItem>
-      </List>
-      <Divider />
-      <List>
-        <ListItem button onClick={() => setLanguage('en')}>
-          <ListItemIcon>
-            <LanguageIcon />
-          </ListItemIcon>
-          <ListItemText 
-            primary={t('english')} 
-            sx={{ 
-              color: language === 'en' ? 'primary.main' : 'inherit',
-              fontWeight: language === 'en' ? 'bold' : 'normal'
-            }}
-          />
-        </ListItem>
-        <ListItem button onClick={() => setLanguage('zh')}>
-          <ListItemIcon>
-            <LanguageIcon />
-          </ListItemIcon>
-          <ListItemText 
-            primary={t('chinese')} 
-            sx={{ 
-              color: language === 'zh' ? 'primary.main' : 'inherit',
-              fontWeight: language === 'zh' ? 'bold' : 'normal'
-            }}
-          />
-        </ListItem>
-      </List>
-      <Divider />
-      <List>
-        <ListItem button onClick={handleLogout}>
-          <ListItemIcon>
-            <LogoutIcon />
-          </ListItemIcon>
-          <ListItemText primary={t('logout')} />
-        </ListItem>
-      </List>
-    </Box>
-  );
+
 
   // Mobile Dashboard Content
   const MobileDashboard = () => (
     <Box sx={{ p: 0 }}>
-      <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb: 2, px: 1 }}>
-        {t('dashboard')}
-      </Typography>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, px: 1 }}>
         <Card elevation={3}>
           <CardContent sx={{ p: 2 }}>
@@ -550,54 +471,15 @@ function Dashboard() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden' }}>
-      {/* Mobile App Bar */}
-      {isMobile && (
-        <AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-          <Toolbar>
-            <IconButton
-              color="inherit"
-              aria-label="open drawer"
-              edge="start"
-              onClick={handleMobileMenuToggle}
-              sx={{ mr: 2 }}
-            >
-              <MenuIcon />
-            </IconButton>
-            <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-              {t('appTitle')}
-            </Typography>
-          </Toolbar>
-        </AppBar>
-      )}
-
-      {/* Mobile Navigation Drawer */}
-      {isMobile && (
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleMobileMenuToggle}
-          ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-          }}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
-          }}
-        >
-          {mobileDrawer}
-        </Drawer>
-      )}
-
       {/* Main Content */}
       <Box sx={{ 
         flexGrow: 1, 
-        mt: isMobile ? 8 : 0,
         display: 'flex',
         flexDirection: 'column'
       }}>
         {isMobile ? (
           // Mobile Layout
-          <Container maxWidth="xs" sx={{ py: 0, flexGrow: 1, px: 0 }}>
+          <Container maxWidth="xs" sx={{ py: 0, pt: 2, flexGrow: 1, px: 0 }}>
             {mobilePage === 'dashboard' && <MobileDashboard />}
             {mobilePage === 'analytics' && <MobileAnalytics />}
             {mobilePage === 'add' && <MobileAddRecord />}

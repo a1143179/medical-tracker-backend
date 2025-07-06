@@ -220,39 +220,6 @@ const Login = () => {
           {t('appDescription')}
         </Typography>
 
-        {/* Language Switcher */}
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          mb: 3,
-          position: 'absolute',
-          top: { xs: 8, sm: 16 },
-          right: { xs: 8, sm: 16 }
-        }}>
-          <FormControl size="small" sx={{ minWidth: { xs: 100, sm: 120 } }}>
-            <Select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              startAdornment={<LanguageIcon sx={{ mr: 1, color: 'white' }} />}
-              sx={{ 
-                color: 'white',
-                '& .MuiSelect-icon': { color: 'white' },
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.3)' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.5)' },
-                '& .MuiSelect-select': { py: 0.5 }
-              }}
-              MenuProps={{
-                PaperProps: {
-                  sx: { mt: 1 }
-                }
-              }}
-            >
-              <MenuItem value="en">{t('english')}</MenuItem>
-              <MenuItem value="zh">{t('chinese')}</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-
         <Box sx={{ width: '100%', mb: 3 }}>
           <Tabs 
             value={activeTab} 

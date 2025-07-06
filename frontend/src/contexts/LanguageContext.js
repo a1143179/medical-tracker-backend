@@ -12,6 +12,7 @@ export const useLanguage = () => {
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguageState] = useState('en');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Load language preference from localStorage on mount
   useEffect(() => {
@@ -23,36 +24,46 @@ export const LanguageProvider = ({ children }) => {
 
   // Listen for user login events to load language preference from backend
   useEffect(() => {
-    const handleUserLogin = () => {
-      loadLanguagePreference();
+    const handleUserLogin = async (event) => {
+      setIsAuthenticated(true);
+      await loadLanguagePreference();
+    };
+
+    const handleUserLogout = () => {
+      setIsAuthenticated(false);
+      // Keep the current language preference in localStorage for non-authenticated users
     };
 
     window.addEventListener('userLoggedIn', handleUserLogin);
+    window.addEventListener('userLoggedOut', handleUserLogout);
     
     return () => {
       window.removeEventListener('userLoggedIn', handleUserLogin);
+      window.removeEventListener('userLoggedOut', handleUserLogout);
     };
   }, []);
 
   const setLanguage = async (newLanguage) => {
     setLanguageState(newLanguage);
     
-    // Save to localStorage
+    // Always save to localStorage for non-authenticated users
     localStorage.setItem('languagePreference', newLanguage);
     
-    // Try to save to backend if user is authenticated
-    try {
-      await fetch('/api/auth/language-preference', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({ languagePreference: newLanguage })
-      });
-    } catch (error) {
-      // Silently fail if user is not authenticated or endpoint is not available
-      console.debug('Could not save language preference to backend:', error.message);
+    // If user is authenticated, also save to backend (source of truth)
+    if (isAuthenticated) {
+      try {
+        await fetch('/api/auth/language-preference', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ languagePreference: newLanguage })
+        });
+      } catch (error) {
+        console.error('Could not save language preference to backend:', error.message);
+        // Even if backend save fails, keep the change in localStorage
+      }
     }
   };
 
@@ -66,10 +77,37 @@ export const LanguageProvider = ({ children }) => {
         const data = await response.json();
         setLanguageState(data.languagePreference);
         localStorage.setItem('languagePreference', data.languagePreference);
+      } else {
+        // If backend doesn't have a preference, check if we have one in localStorage
+        // This handles the case where a user registered and we need to transfer their preference
+        const localPreference = localStorage.getItem('languagePreference');
+        if (localPreference && (localPreference === 'en' || localPreference === 'zh')) {
+          // Transfer localStorage preference to backend
+          try {
+            await fetch('/api/auth/language-preference', {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({ languagePreference: localPreference })
+            });
+            // Keep the current preference in state
+            setLanguageState(localPreference);
+          } catch (error) {
+            console.error('Could not transfer language preference to backend:', error.message);
+            // Keep using localStorage preference
+            setLanguageState(localPreference);
+          }
+        }
       }
     } catch (error) {
-      // Silently fail if user is not authenticated or endpoint is not available
-      console.debug('Could not load language preference from backend:', error.message);
+      console.error('Could not load language preference from backend:', error.message);
+      // Fallback to localStorage preference
+      const localPreference = localStorage.getItem('languagePreference');
+      if (localPreference && (localPreference === 'en' || localPreference === 'zh')) {
+        setLanguageState(localPreference);
+      }
     }
   };
 
@@ -337,10 +375,16 @@ export const LanguageProvider = ({ children }) => {
     return text;
   };
 
+  // Function to sync authentication state
+  const syncAuthState = (authenticated) => {
+    setIsAuthenticated(authenticated);
+  };
+
   const value = {
     language,
     setLanguage,
     loadLanguagePreference,
+    syncAuthState,
     t,
     translations
   };

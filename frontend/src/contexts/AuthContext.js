@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useLanguage } from './LanguageContext';
 
 const AuthContext = createContext();
 
@@ -13,9 +14,10 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { syncAuthState } = useLanguage();
 
   useEffect(() => {
-    // Check for remember token first
+    // Check for remember token to validate session
     const checkRememberToken = async () => {
       try {
         const response = await fetch('/api/auth/validate-remember-token', {
@@ -26,60 +28,33 @@ export const AuthProvider = ({ children }) => {
         if (response.ok) {
           const userData = await response.json();
           setUser(userData);
-          localStorage.setItem('user', JSON.stringify(userData));
+          syncAuthState(true);
           
           // Dispatch custom event for language preference loading
           window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: userData }));
         } else {
-          // No valid remember token, check for stored user in localStorage
-          const storedUser = localStorage.getItem('user');
-          
-          if (storedUser) {
-            try {
-              const userData = JSON.parse(storedUser);
-              // Check if this is old mock data (has very large ID)
-              if (userData.id && userData.id > 1000000) {
-                // This is old mock data, clear it
-                localStorage.removeItem('user');
-                localStorage.removeItem('savedCredentials');
-                setUser(null);
-              } else {
-                setUser(userData);
-              }
-            } catch (error) {
-              // Invalid JSON, clear it
-              localStorage.removeItem('user');
-              localStorage.removeItem('savedCredentials');
-              setUser(null);
-            }
-          }
+          // No valid session, user is not authenticated
+          setUser(null);
+          syncAuthState(false);
         }
       } catch (error) {
         console.error('Error checking remember token:', error);
-        // Fallback to localStorage check
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            const userData = JSON.parse(storedUser);
-            if (userData.id && userData.id > 1000000) {
-              localStorage.removeItem('user');
-              localStorage.removeItem('savedCredentials');
-              setUser(null);
-            } else {
-              setUser(userData);
-            }
-          } catch (error) {
-            localStorage.removeItem('user');
-            localStorage.removeItem('savedCredentials');
-            setUser(null);
-          }
-        }
+        // On error, assume user is not authenticated
+        setUser(null);
+        syncAuthState(false);
       }
       setLoading(false);
     };
 
     checkRememberToken();
-  }, []);
+  }, [syncAuthState]);
+
+  // Sync initial authentication state
+  useEffect(() => {
+    if (!loading) {
+      syncAuthState(!!user);
+    }
+  }, [user, loading, syncAuthState]);
 
   const login = async (email, password, rememberMe = false) => {
     try {
@@ -99,7 +74,7 @@ export const AuthProvider = ({ children }) => {
 
       const userData = await response.json();
       setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      syncAuthState(true);
       
       // Dispatch custom event for language preference loading
       window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: userData }));
@@ -128,7 +103,7 @@ export const AuthProvider = ({ children }) => {
 
       const userData = await response.json();
       setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
+      syncAuthState(true);
       
       // Dispatch custom event for language preference loading
       window.dispatchEvent(new CustomEvent('userLoggedIn', { detail: userData }));
@@ -151,9 +126,12 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
-      localStorage.removeItem('user');
-      // Also clear saved credentials when logging out
+      // Clear any saved credentials when logging out
       localStorage.removeItem('savedCredentials');
+      syncAuthState(false);
+      
+      // Dispatch custom event for language preference handling
+      window.dispatchEvent(new CustomEvent('userLoggedOut'));
     }
   };
 
