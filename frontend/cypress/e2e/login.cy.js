@@ -44,9 +44,8 @@ describe('Login Page', () => {
   })
 
   it('should redirect authenticated users to dashboard', () => {
-    // This test assumes you have a test user set up
-    // You might need to create a test user in your database first
-    cy.login('test@example.com', 'password123')
+    // This test uses the specific test user credentials
+    cy.login('weiwangfly@hotmail.com', 'test123')
     cy.url().should('include', '/dashboard')
   })
 }) 

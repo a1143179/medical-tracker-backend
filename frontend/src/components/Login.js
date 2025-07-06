@@ -35,8 +35,11 @@ const Login = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [rememberPassword, setRememberPassword] = useState(false);
-
-
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotPasswordStep, setForgotPasswordStep] = useState(0);
+  const [resetCode, setResetCode] = useState('');
+  const [isSendingResetCode, setIsSendingResetCode] = useState(false);
+  const [resetCountdown, setResetCountdown] = useState(0);
 
   const [registrationStep, setRegistrationStep] = useState(0);
   const [verificationCode, setVerificationCode] = useState('');
@@ -45,7 +48,9 @@ const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    newPassword: '',
+    confirmNewPassword: ''
   });
 
 
@@ -58,6 +63,15 @@ const Login = () => {
     }
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // Countdown timer for reset code
+  useEffect(() => {
+    let timer;
+    if (resetCountdown > 0) {
+      timer = setTimeout(() => setResetCountdown(resetCountdown - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resetCountdown]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -125,6 +139,114 @@ const Login = () => {
   const handleResendCode = async () => {
     if (countdown > 0) return;
     await handleSendVerificationCode();
+  };
+
+  const handleForgotPassword = () => {
+    setShowForgotPassword(true);
+    setForgotPasswordStep(0);
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleBackToLogin = () => {
+    setShowForgotPassword(false);
+    setForgotPasswordStep(0);
+    setResetCode('');
+    setFormData(prev => ({
+      ...prev,
+      newPassword: '',
+      confirmNewPassword: ''
+    }));
+    setError(null);
+    setSuccess(null);
+  };
+
+  const handleSendResetCode = async () => {
+    if (!formData.email) {
+      setError(t('enterEmailFirst'));
+      return;
+    }
+
+    try {
+      setIsSendingResetCode(true);
+      setError(null);
+      
+      const response = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: formData.email }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSuccess(data.message);
+        setForgotPasswordStep(1);
+        setResetCountdown(60); // 60 seconds countdown
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError('Failed to send reset code');
+    } finally {
+      setIsSendingResetCode(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    
+    if (formData.newPassword !== formData.confirmNewPassword) {
+      setError(t('passwordsDoNotMatch'));
+      return;
+    }
+
+    if (formData.newPassword.length < 6) {
+      setError(t('passwordTooShort'));
+      return;
+    }
+
+    try {
+      setError(null);
+      
+      const response = await fetch('/api/auth/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          code: resetCode,
+          newPassword: formData.newPassword,
+          confirmPassword: formData.confirmNewPassword
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        setSuccess(data.message);
+        setForgotPasswordStep(2);
+        // Clear form data
+        setFormData(prev => ({
+          ...prev,
+          newPassword: '',
+          confirmNewPassword: ''
+        }));
+        setResetCode('');
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError('Failed to reset password');
+    }
+  };
+
+  const handleResendResetCode = async () => {
+    if (resetCountdown > 0) return;
+    await handleSendResetCode();
   };
 
   const handleLogin = async (e) => {
@@ -268,7 +390,16 @@ const Login = () => {
         )}
 
         {error && (
-          <Alert severity="error" sx={{ mb: 3, width: '100%', bgcolor: 'rgba(255,255,255,0.9)', color: 'error.main' }}>
+          <Alert 
+            severity="error" 
+            data-testid="error-message"
+            sx={{ 
+              mb: 3, 
+              width: '100%', 
+              bgcolor: 'rgba(255,255,255,0.9)', 
+              color: 'error.main' 
+            }}
+          >
             {error}
           </Alert>
         )}
@@ -276,6 +407,7 @@ const Login = () => {
         {success && (
           <Alert 
             severity="success" 
+            data-testid="success-message"
             sx={{ 
               mb: 3, 
               width: '100%', 
@@ -290,8 +422,8 @@ const Login = () => {
         )}
 
         {/* Login Form */}
-        {activeTab === 0 && (
-          <Box component="form" onSubmit={handleLogin} sx={{ width: '100%' }}>
+        {activeTab === 0 && !showForgotPassword && (
+          <Box component="form" onSubmit={handleLogin} data-testid="login-form" sx={{ width: '100%' }}>
             <TextField
               fullWidth
               label={t('email')}
@@ -366,28 +498,45 @@ const Login = () => {
               }}
             />
 
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={rememberPassword}
-                  onChange={handleRememberPasswordChange}
-                  sx={{
-                    color: 'rgba(255,255,255,0.7)',
-                    '&.Mui-checked': {
-                      color: 'white',
-                    },
-                  }}
-                />
-              }
-              label={t('rememberPassword')}
-              sx={{
-                mt: 1,
-                '& .MuiFormControlLabel-label': {
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={rememberPassword}
+                    onChange={handleRememberPasswordChange}
+                    sx={{
+                      color: 'rgba(255,255,255,0.7)',
+                      '&.Mui-checked': {
+                        color: 'white',
+                      },
+                    }}
+                  />
+                }
+                label={t('rememberPassword')}
+                sx={{
+                  '& .MuiFormControlLabel-label': {
+                    color: 'rgba(255,255,255,0.8)',
+                    fontSize: '0.875rem',
+                  },
+                }}
+              />
+              
+              <Button
+                onClick={handleForgotPassword}
+                data-testid="forgot-password-link"
+                sx={{
                   color: 'rgba(255,255,255,0.8)',
+                  textTransform: 'none',
                   fontSize: '0.875rem',
-                },
-              }}
-            />
+                  '&:hover': {
+                    color: 'white',
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                {t('forgotPassword')}
+              </Button>
+            </Box>
             
             <Button
               type="submit"
@@ -430,6 +579,7 @@ const Login = () => {
                   onChange={handleInputChange}
                   required
                   margin="normal"
+                  data-testid="forgot-password-email-input"
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
@@ -688,6 +838,300 @@ const Login = () => {
                   }}
                 >
                   {t('createAccount')}
+                </Button>
+              </Box>
+            )}
+          </Box>
+        )}
+
+        {/* Forgot Password Forms */}
+        {showForgotPassword && (
+          <Box sx={{ width: '100%' }}>
+            {/* Step 1: Enter Email */}
+            {forgotPasswordStep === 0 && (
+              <Box>
+                <Typography variant="h6" data-testid="forgot-password-title" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
+                  {t('forgotPassword')}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 3, textAlign: 'center', opacity: 0.9 }}>
+                  {t('enterEmailForReset')}
+                </Typography>
+                
+                <TextField
+                  fullWidth
+                  label={t('email')}
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  required
+                  margin="normal"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: 'rgba(255,255,255,0.3)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(255,255,255,0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'white',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                      '&.Mui-focused': {
+                        color: 'white',
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: 'white',
+                      '&::placeholder': {
+                        color: 'rgba(255,255,255,0.5)',
+                      },
+                    },
+                  }}
+                />
+                
+                <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleBackToLogin}
+                    data-testid="back-button"
+                    sx={{
+                      borderColor: 'rgba(255,255,255,0.5)',
+                      color: 'white',
+                      '&:hover': {
+                        borderColor: 'white',
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                      },
+                    }}
+                  >
+                    {t('back')}
+                  </Button>
+                  
+                  <Button
+                    variant="contained"
+                    onClick={handleSendResetCode}
+                    disabled={isSendingResetCode || !formData.email}
+                    data-testid="send-reset-code-button"
+                    sx={{
+                      flex: 1,
+                      bgcolor: 'white',
+                      color: '#333',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                      },
+                      '&:disabled': {
+                        bgcolor: 'rgba(255,255,255,0.5)',
+                        color: 'rgba(0,0,0,0.5)',
+                      },
+                    }}
+                  >
+                    {isSendingResetCode ? t('sending') : t('sendResetCode')}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
+            {/* Step 2: Enter Reset Code and New Password */}
+            {forgotPasswordStep === 1 && (
+              <Box component="form" onSubmit={handleResetPassword}>
+                <Typography variant="h6" data-testid="reset-password-title" sx={{ mb: 2, textAlign: 'center', fontWeight: 'bold' }}>
+                  {t('resetPassword')}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 3, textAlign: 'center', opacity: 0.9 }}>
+                  {t('enterResetCodeAndPassword')}
+                </Typography>
+                
+                <TextField
+                  fullWidth
+                  label={t('resetCode')}
+                  type="text"
+                  value={resetCode}
+                  onChange={(e) => setResetCode(e.target.value)}
+                  required
+                  margin="normal"
+                  data-testid="reset-code-input"
+                  inputProps={{ maxLength: 6 }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: 'rgba(255,255,255,0.3)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(255,255,255,0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'white',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                      '&.Mui-focused': {
+                        color: 'white',
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: 'white',
+                      '&::placeholder': {
+                        color: 'rgba(255,255,255,0.5)',
+                      },
+                    },
+                  }}
+                />
+
+                <TextField
+                  fullWidth
+                  label={t('newPassword')}
+                  type="password"
+                  name="newPassword"
+                  value={formData.newPassword}
+                  onChange={handleInputChange}
+                  required
+                  margin="normal"
+                  data-testid="new-password-input"
+                  InputLabelProps={{ shrink: true }}
+                  helperText={t('passwordMinLength')}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: 'rgba(255,255,255,0.3)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(255,255,255,0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'white',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                      '&.Mui-focused': {
+                        color: 'white',
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: 'white',
+                      '&::placeholder': {
+                        color: 'rgba(255,255,255,0.5)',
+                      },
+                    },
+                    '& .MuiFormHelperText-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                    },
+                  }}
+                />
+
+                <TextField
+                  fullWidth
+                  label={t('confirmNewPassword')}
+                  type="password"
+                  name="confirmNewPassword"
+                  value={formData.confirmNewPassword}
+                  onChange={handleInputChange}
+                  required
+                  margin="normal"
+                  data-testid="confirm-new-password-input"
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '& fieldset': {
+                        borderColor: 'rgba(255,255,255,0.3)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(255,255,255,0.5)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: 'white',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255,255,255,0.7)',
+                      '&.Mui-focused': {
+                        color: 'white',
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      color: 'white',
+                      '&::placeholder': {
+                        color: 'rgba(255,255,255,0.5)',
+                      },
+                    },
+                  }}
+                />
+                
+                <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={handleResendResetCode}
+                    disabled={resetCountdown > 0}
+                    data-testid="resend-reset-code-button"
+                    sx={{
+                      borderColor: 'rgba(255,255,255,0.5)',
+                      color: 'white',
+                      '&:hover': {
+                        borderColor: 'white',
+                        bgcolor: 'rgba(255,255,255,0.1)',
+                      },
+                      '&:disabled': {
+                        borderColor: 'rgba(255,255,255,0.3)',
+                        color: 'rgba(255,255,255,0.5)',
+                      },
+                    }}
+                  >
+                    {resetCountdown > 0 ? t('resendInSeconds', { seconds: resetCountdown }) : t('resendCode')}
+                  </Button>
+                  
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={!resetCode || !formData.newPassword || !formData.confirmNewPassword}
+                    data-testid="reset-password-button"
+                    sx={{
+                      flex: 1,
+                      bgcolor: 'white',
+                      color: '#333',
+                      '&:hover': {
+                        bgcolor: '#f5f5f5',
+                      },
+                      '&:disabled': {
+                        bgcolor: 'rgba(255,255,255,0.5)',
+                        color: 'rgba(0,0,0,0.5)',
+                      },
+                    }}
+                  >
+                    {t('resetPassword')}
+                  </Button>
+                </Box>
+              </Box>
+            )}
+
+            {/* Step 3: Success */}
+            {forgotPasswordStep === 2 && (
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" data-testid="password-reset-success-title" sx={{ mb: 2, fontWeight: 'bold' }}>
+                  {t('passwordResetSuccess')}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 3, opacity: 0.9 }}>
+                  {t('passwordResetSuccessMessage')}
+                </Typography>
+                
+                <Button
+                  variant="contained"
+                  onClick={handleBackToLogin}
+                  data-testid="back-to-login-button"
+                  sx={{
+                    bgcolor: 'white',
+                    color: '#333',
+                    '&:hover': {
+                      bgcolor: '#f5f5f5',
+                    },
+                  }}
+                >
+                  {t('backToLogin')}
                 </Button>
               </Box>
             )}

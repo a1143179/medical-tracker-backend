@@ -9,8 +9,8 @@ describe('API Integration', () => {
 
   it('should handle login API call', () => {
     cy.visit('/login')
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('input[name="password"]').type('password123')
+    cy.get('input[name="email"]').type('weiwangfly@hotmail.com')
+    cy.get('input[name="password"]').type('test123')
     cy.get('form').submit()
     
     cy.wait('@login')
@@ -18,14 +18,14 @@ describe('API Integration', () => {
   })
 
   it('should load blood sugar records from API', () => {
-    cy.login('test@example.com', 'password123')
+    cy.login('weiwangfly@hotmail.com', 'test123')
     
     cy.wait('@getRecords')
     cy.get('[data-testid="blood-sugar-records"]').should('be.visible')
   })
 
   it('should add new blood sugar record via API', () => {
-    cy.login('test@example.com', 'password123')
+    cy.login('weiwangfly@hotmail.com', 'test123')
     
     cy.get('[data-testid="add-record-button"]').click()
     cy.get('input[name="level"]').type('130')
@@ -58,8 +58,8 @@ describe('API Integration', () => {
     cy.intercept('POST', '/api/auth/login', { forceNetworkError: true }).as('networkError')
     
     cy.visit('/login')
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('input[name="password"]').type('password123')
+    cy.get('input[name="email"]').type('weiwangfly@hotmail.com')
+    cy.get('input[name="password"]').type('test123')
     cy.get('form').submit()
     
     cy.wait('@networkError')
@@ -84,8 +84,8 @@ describe('API Integration', () => {
     }).as('loginWithDelay')
     
     cy.visit('/login')
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('input[name="password"]').type('password123')
+    cy.get('input[name="email"]').type('weiwangfly@hotmail.com')
+    cy.get('input[name="password"]').type('test123')
     cy.get('form').submit()
     
     // Should show loading state
@@ -106,8 +106,8 @@ describe('API Integration', () => {
     }).as('loginWithValidation')
     
     cy.visit('/login')
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('input[name="password"]').type('password123')
+    cy.get('input[name="email"]').type('weiwangfly@hotmail.com')
+    cy.get('input[name="password"]').type('test123')
     cy.get('input[type="checkbox"]').check() // Remember me
     cy.get('form').submit()
     

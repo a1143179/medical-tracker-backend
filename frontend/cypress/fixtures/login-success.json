@@ -1,7 +1,7 @@
 {
   "id": 1,
-  "email": "test@example.com",
-  "name": "Test User",
+  "email": "weiwangfly@hotmail.com",
+  "name": "Wei Wang",
   "createdAt": "2024-01-01T00:00:00Z",
   "isEmailVerified": true,
   "languagePreference": "en"

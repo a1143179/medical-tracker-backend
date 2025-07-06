@@ -233,6 +233,20 @@ export const LanguageProvider = ({ children }) => {
       
       // Common
       loading: 'Loading...',
+      
+      // Forgot Password
+      forgotPassword: 'Forgot Password?',
+      enterEmailForReset: 'Enter your email address to receive a reset code',
+      sendResetCode: 'Send Reset Code',
+      resetPassword: 'Reset Password',
+      enterResetCodeAndPassword: 'Enter the reset code and your new password',
+      resetCode: 'Reset Code',
+      newPassword: 'New Password',
+      confirmNewPassword: 'Confirm New Password',
+      passwordResetSuccess: 'Password Reset Successful',
+      passwordResetSuccessMessage: 'Your password has been reset successfully. You can now log in with your new password.',
+      backToLogin: 'Back to Login',
+      back: 'Back',
     },
     zh: {
       // App Bar
@@ -355,6 +369,20 @@ export const LanguageProvider = ({ children }) => {
       
       // Common
       loading: '加载中...',
+      
+      // Forgot Password
+      forgotPassword: '忘记密码？',
+      enterEmailForReset: '输入您的邮箱地址以接收重置代码',
+      sendResetCode: '发送重置代码',
+      resetPassword: '重置密码',
+      enterResetCodeAndPassword: '输入重置代码和您的新密码',
+      resetCode: '重置代码',
+      newPassword: '新密码',
+      confirmNewPassword: '确认新密码',
+      passwordResetSuccess: '密码重置成功',
+      passwordResetSuccessMessage: '您的密码已成功重置。您现在可以使用新密码登录。',
+      backToLogin: '返回登录',
+      back: '返回',
     }
   };
 

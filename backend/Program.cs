@@ -26,6 +26,10 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+// Log the current ASPNETCORE_ENVIRONMENT value
+var env = app.Environment.EnvironmentName;
+app.Logger.LogInformation("ASPNETCORE_ENVIRONMENT: {env}", env);
+
 // 2. middleware
 if (app.Environment.IsDevelopment())
 {
@@ -90,36 +94,25 @@ authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbCo
         return Results.BadRequest(new { message = "Invalid email or password" });
     }
 
-    // Handle remember me functionality
-    if (loginDto.RememberMe)
+    // Always create a session token, but with different expiration times
+    var rememberToken = GenerateRememberToken();
+    var tokenExpiry = loginDto.RememberMe 
+        ? DateTime.UtcNow.AddMonths(3) // 3 months for "remember me"
+        : DateTime.UtcNow.AddHours(24); // 24 hours for regular login
+    
+    user.RememberToken = rememberToken;
+    user.RememberTokenExpiry = tokenExpiry;
+    await db.SaveChangesAsync();
+    
+    // Set HTTP-only cookie
+    context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
     {
-        var rememberToken = GenerateRememberToken();
-        var tokenExpiry = DateTime.UtcNow.AddMonths(3); // 3 months for "remember me"
-        
-        user.RememberToken = rememberToken;
-        user.RememberTokenExpiry = tokenExpiry;
-        await db.SaveChangesAsync();
-        
-        // Set HTTP-only cookie
-        context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
-            SameSite = SameSiteMode.Strict,
-            Expires = tokenExpiry,
-            Path = "/"
-        });
-    }
-    else
-    {
-        // Clear any existing remember token and cookie
-        user.RememberToken = null;
-        user.RememberTokenExpiry = null;
-        await db.SaveChangesAsync();
-        
-        // Delete the remember token cookie
-        context.Response.Cookies.Delete("remember_token");
-    }
+        HttpOnly = true,
+        Secure = !app.Environment.IsDevelopment(), // Only use Secure in production
+        SameSite = SameSiteMode.Strict,
+        Expires = tokenExpiry,
+        Path = "/"
+    });
 
     var userDto = new UserDto
     {
@@ -380,6 +373,71 @@ authApi.MapPut("/language-preference", async (UpdateLanguagePreferenceDto dto, H
     await db.SaveChangesAsync();
 
     return Results.Ok(new { message = "Language preference updated successfully" });
+});
+
+// Forgot password - send reset code
+authApi.MapPost("/forgot-password", async (ForgotPasswordDto dto, AppDbContext db) =>
+{
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+    if (user == null)
+    {
+        // Don't reveal if user exists or not for security
+        return Results.Ok(new { message = "If the email exists, a reset code has been sent" });
+    }
+
+    // Generate reset code
+    var resetCode = Random.Shared.Next(100000, 999999).ToString();
+    var expiryTime = DateTime.UtcNow.AddMinutes(15); // 15 minutes expiry
+
+    user.VerificationCode = resetCode;
+    user.VerificationCodeExpiry = expiryTime;
+    await db.SaveChangesAsync();
+
+    if (app.Environment.IsDevelopment())
+    {
+        return Results.Ok(new { message = "Reset code sent", code = resetCode });
+    }
+
+    // TODO: Send email in production
+    return Results.Ok(new { message = "If the email exists, a reset code has been sent" });
+});
+
+// Reset password with code
+authApi.MapPost("/reset-password", async (ResetPasswordDto dto, AppDbContext db) =>
+{
+    if (dto.NewPassword != dto.ConfirmPassword)
+    {
+        return Results.BadRequest(new { message = "Passwords do not match" });
+    }
+
+    if (dto.NewPassword.Length < 6)
+    {
+        return Results.BadRequest(new { message = "Password must be at least 6 characters long" });
+    }
+
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+    if (user == null)
+    {
+        return Results.BadRequest(new { message = "Invalid email or reset code" });
+    }
+
+    if (user.VerificationCode != dto.Code)
+    {
+        return Results.BadRequest(new { message = "Invalid reset code" });
+    }
+
+    if (user.VerificationCodeExpiry < DateTime.UtcNow)
+    {
+        return Results.BadRequest(new { message = "Reset code has expired" });
+    }
+
+    // Update password
+    user.PasswordHash = HashPassword(dto.NewPassword);
+    user.VerificationCode = null;
+    user.VerificationCodeExpiry = null;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Password reset successfully" });
 });
 
 // Blood sugar records endpoints (now with user filtering)

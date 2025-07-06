@@ -9,10 +9,30 @@
 // ***********************************************
 
 // Custom command to login with test credentials
-Cypress.Commands.add('login', (email = 'test@example.com', password = 'password123') => {
+Cypress.Commands.add('login', (email = 'weiwangfly@hotmail.com', password = 'test123') => {
   cy.visit('/login')
   cy.get('input[name="email"]').type(email)
   cy.get('input[name="password"]').type(password)
+  cy.get('form').submit()
+  cy.url().should('include', '/dashboard')
+})
+
+// Custom command to login with remember me
+Cypress.Commands.add('loginWithRememberMe', (email = 'weiwangfly@hotmail.com', password = 'test123') => {
+  cy.visit('/login')
+  cy.get('input[name="email"]').type(email)
+  cy.get('input[name="password"]').type(password)
+  cy.get('input[type="checkbox"]').check()
+  cy.get('form').submit()
+  cy.url().should('include', '/dashboard')
+})
+
+// Custom command to login without remember me
+Cypress.Commands.add('loginWithoutRememberMe', (email = 'weiwangfly@hotmail.com', password = 'test123') => {
+  cy.visit('/login')
+  cy.get('input[name="email"]').type(email)
+  cy.get('input[name="password"]').type(password)
+  cy.get('input[type="checkbox"]').should('not.be.checked')
   cy.get('form').submit()
   cy.url().should('include', '/dashboard')
 })

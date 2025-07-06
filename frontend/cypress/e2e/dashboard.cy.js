@@ -1,7 +1,7 @@
 describe('Dashboard', () => {
   beforeEach(() => {
     // Login before each test
-    cy.login('test@example.com', 'password123')
+    cy.login('weiwangfly@hotmail.com', 'test123')
   })
 
   it('should display dashboard after login', () => {
@@ -67,6 +67,6 @@ describe('Dashboard', () => {
 
   it('should display user information', () => {
     cy.get('[data-testid="user-email"]').should('be.visible')
-    cy.get('[data-testid="user-email"]').should('contain', 'test@example.com')
+    cy.get('[data-testid="user-email"]').should('contain', 'weiwangfly@hotmail.com')
   })
 }) 
