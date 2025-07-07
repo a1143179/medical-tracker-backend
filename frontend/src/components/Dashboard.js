@@ -19,7 +19,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid,
   Card,
   CardContent,
   Alert,
@@ -40,9 +39,7 @@ import {
   TrendingDown as TrendingDownIcon,
   Remove as RemoveIcon,
   BarChart as BarChartIcon,
-  ShowChart as ShowChartIcon,
-  Analytics as AnalyticsIcon,
-  AddCircle as AddCircleIcon
+  ShowChart as ShowChartIcon
 } from '@mui/icons-material';
 import {
   LineChart,
