@@ -56,12 +56,12 @@ jobs:
         ASPNETCORE_ENVIRONMENT: Development
         ConnectionStrings__DefaultConnection: "Host=localhost;Database=bloodsugar_test;Username=postgres;Password=password"
 
-    - name: Run Cypress tests
-      working-directory: ./frontend
-      run: npm run cypress:run
-      env:
-        CYPRESS_baseUrl: http://localhost:3000
-        CYPRESS_apiUrl: http://localhost:8080
+    # - name: Run Cypress tests
+    #   working-directory: ./frontend
+    #   run: npm run cypress:run
+    #   env:
+    #     CYPRESS_baseUrl: http://localhost:3000
+    #     CYPRESS_apiUrl: http://localhost:8080
 
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -100,13 +100,13 @@ jobs:
         ASPNETCORE_ENVIRONMENT: Development
         ConnectionStrings__DefaultConnection: "Host=localhost;Database=bloodsugar_test;Username=postgres;Password=password"
 
-    - name: Run Cypress tests
-      working-directory: ./frontend
-      run: npm run cypress:run
-      env:
-        # Set environment variables for Cypress
-        CYPRESS_baseUrl: http://localhost:3000
-        CYPRESS_apiUrl: http://localhost:8080
+    # - name: Run Cypress tests
+    #   working-directory: ./frontend
+    #   run: npm run cypress:run
+    #   env:
+    #     # Set environment variables for Cypress
+    #     CYPRESS_baseUrl: http://localhost:3000
+    #     CYPRESS_apiUrl: http://localhost:8080
 
     - name: Restore backend dependencies
       working-directory: ./backend

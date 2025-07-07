@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   AppBar,
   Toolbar,
@@ -15,17 +15,22 @@ import {
   ListItem,
   ListItemText,
   ListItemIcon,
-  Divider
+  Divider,
+  Button,
+  Snackbar,
+  Alert
 } from '@mui/material';
-import { Logout, Language, Menu as MenuIcon, Dashboard, Person } from '@mui/icons-material';
+import { Logout, Language, Menu as MenuIcon, Dashboard, Person, Save, BarChart } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const Header = () => {
+const Header = ({ onMobileNavigate }) => {
   const { user, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState(language);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -43,6 +48,16 @@ const Header = () => {
 
   const handleMobileMenuToggle = () => {
     setMobileMenuOpen(!mobileMenuOpen);
+  };
+
+  const handleLanguageChange = async (event) => {
+    const newLanguage = event.target.value;
+    setSelectedLanguage(newLanguage);
+    try {
+      await setLanguage(newLanguage);
+    } catch (error) {
+      setSnackbar({ open: true, message: t('failedToSaveLanguage'), severity: 'error' });
+    }
   };
 
   return (
@@ -76,11 +91,11 @@ const Header = () => {
           {/* Language Selector and Profile Icon Container */}
           <Box sx={{ display: 'flex', alignItems: 'center', ml: 'auto' }}>
             {/* Language Selector */}
-            <FormControl size="small" sx={{ mr: 2, minWidth: { xs: 80, md: 120 } }}>
+            <FormControl size="small" sx={{ mr: 1, minWidth: { xs: 80, md: 120 } }}>
               <Select
                 data-testid="language-selector"
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={handleLanguageChange}
                 startAdornment={<Language sx={{ mr: { xs: 0.5, md: 1 }, color: 'white', fontSize: { xs: '1.2rem', md: '1.5rem' } }} />}
                 sx={{ 
                   color: 'white',
@@ -100,6 +115,8 @@ const Header = () => {
               </Select>
             </FormControl>
             
+
+            
             {/* Welcome Message - Only visible on desktop */}
             {user && (
               <Typography variant="body2" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
@@ -116,6 +133,7 @@ const Header = () => {
                 aria-haspopup="true"
                 onClick={handleMenu}
                 color="inherit"
+                data-testid="profile-menu"
               >
                 <Avatar 
                   sx={{ 
@@ -180,17 +198,23 @@ const Header = () => {
         </Box>
         <Divider />
         <List>
-          <ListItem button>
+          <ListItem onClick={() => { if (typeof onMobileNavigate === 'function') onMobileNavigate('add'); handleMobileMenuToggle(); }} data-testid="add-record-menu-item">
+            <ListItemIcon>
+              <Person />
+            </ListItemIcon>
+            <ListItemText primary={t('addNewRecord')} />
+          </ListItem>
+          <ListItem onClick={() => { if (typeof onMobileNavigate === 'function') onMobileNavigate('dashboard'); handleMobileMenuToggle(); }}>
             <ListItemIcon>
               <Dashboard />
             </ListItemIcon>
             <ListItemText primary={t('dashboard')} />
           </ListItem>
-          <ListItem button>
+          <ListItem onClick={() => { if (typeof onMobileNavigate === 'function') onMobileNavigate('analytics'); handleMobileMenuToggle(); }}>
             <ListItemIcon>
-              <Person />
+              <BarChart />
             </ListItemIcon>
-            <ListItemText primary={t('profile')} />
+            <ListItemText primary={t('analytics')} />
           </ListItem>
         </List>
         <Divider />
@@ -244,12 +268,29 @@ const Header = () => {
               </Box>
             </Box>
           </MenuItem>
-          <MenuItem onClick={handleLogout}>
+
+
+          <MenuItem onClick={handleLogout} data-testid="logout-button">
             <Logout sx={{ mr: 1 }} />
             {t('logout')}
           </MenuItem>
         </Menu>
       )}
+
+      {/* Snackbar for language save notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert 
+          onClose={() => setSnackbar({ ...snackbar, open: false })} 
+          severity={snackbar.severity}
+          data-testid={snackbar.severity === 'success' ? 'success-message' : 'error-message'}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 };

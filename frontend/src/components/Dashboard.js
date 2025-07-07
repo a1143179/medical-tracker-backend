@@ -59,7 +59,7 @@ import {
 // Backend API URL
 const API_URL = '/api/records';
 
-function Dashboard() {
+function Dashboard({ mobilePage, onMobilePageChange }) {
   const { user, logout } = useAuth();
   const { language, setLanguage, t } = useLanguage();
   const theme = useTheme();
@@ -69,7 +69,15 @@ function Dashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [currentRecord, setCurrentRecord] = useState({ 
     id: null, 
-    measurementTime: new Date().toISOString().substring(0, 16), 
+    measurementTime: (() => {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    })(), 
     level: '', 
     notes: ''
   });
@@ -79,9 +87,6 @@ function Dashboard() {
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [activeTab, setActiveTab] = useState(0);
   
-  // Mobile navigation state
-  const [mobilePage, setMobilePage] = useState('dashboard'); // 'dashboard', 'analytics', 'add'
-
   const showSnackbar = useCallback((message, severity) => {
     setSnackbar({ open: true, message, severity });
   }, []);
@@ -122,27 +127,54 @@ function Dashboard() {
         return;
       }
 
+      // Client-side validation
+      const level = parseFloat(currentRecord.level);
+      if (isNaN(level) || level < 0.1 || level > 1000) {
+        showSnackbar('Blood sugar level must be between 0.1 and 1000 mmol/L', 'error');
+        return;
+      }
+
+      if (currentRecord.notes && currentRecord.notes.length > 1000) {
+        showSnackbar('Notes cannot exceed 1000 characters', 'error');
+        return;
+      }
+
       if (isEditing) {
-        await fetch(`${API_URL}/${currentRecord.id}?userId=${encodeURIComponent(userId)}`, {
+        const response = await fetch(`${API_URL}/${currentRecord.id}?userId=${encodeURIComponent(userId)}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             ...currentRecord, 
-            level: parseFloat(currentRecord.level)
+            level: level,
+            measurementTime: new Date(currentRecord.measurementTime).toISOString()
           }),
         });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          showSnackbar(errorData.message || t('failedToSaveRecord'), 'error');
+          return;
+        }
+        
         showSnackbar(t('recordUpdatedSuccessfully'), 'success');
       } else {
         // Convert local time to UTC before sending to backend
-        await fetch(`${API_URL}?userId=${encodeURIComponent(userId)}`, {
+        const response = await fetch(`${API_URL}?userId=${encodeURIComponent(userId)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             ...currentRecord, 
-            level: parseFloat(currentRecord.level), 
+            level: level, 
             measurementTime: new Date(currentRecord.measurementTime).toISOString()
           }),
         });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          showSnackbar(errorData.message || t('failedToSaveRecord'), 'error');
+          return;
+        }
+        
         showSnackbar(t('recordAddedSuccessfully'), 'success');
       }
       resetForm();
@@ -150,7 +182,7 @@ function Dashboard() {
       
       // Redirect to dashboard on mobile after adding record
       if (isMobile && !isEditing) {
-        handleMobilePageChange('dashboard');
+        onMobilePageChange('dashboard');
       }
     } catch (error) {
       showSnackbar(t('failedToSaveRecord'), 'error');
@@ -218,12 +250,35 @@ function Dashboard() {
   };
 
   const handleMobilePageChange = (page) => {
-    setMobilePage(page);
+    onMobilePageChange(page);
+  };
+
+  const handleOpenAddRecord = () => {
+    // Update the measure time to current local time when opening add record dialog
+    const now = new Date();
+    const localDateTime = formatDateTimeForInput(now);
     
-    // Reset form when navigating away from add page
-    if (page !== 'add') {
-      resetForm();
-    }
+    setCurrentRecord({ 
+      id: null, 
+      measurementTime: localDateTime, 
+      level: '', 
+      notes: ''
+    });
+    setOpenDialog(true);
+  };
+
+  const handleOpenMobileAddRecord = () => {
+    // Update the measure time to current local time when opening mobile add record
+    const now = new Date();
+    const localDateTime = formatDateTimeForInput(now);
+    
+    setCurrentRecord({ 
+      id: null, 
+      measurementTime: localDateTime, 
+      level: '', 
+      notes: ''
+    });
+    handleMobilePageChange('add');
   };
 
   const getBloodSugarStatus = (level) => {
@@ -250,7 +305,7 @@ function Dashboard() {
   const formatDateTimeForInput = (dateTime) => {
     const date = new Date(dateTime);
     
-    // Format as YYYY-MM-DDTHH:mm for datetime-local input in local time
+    // Get local time components to avoid timezone issues
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
@@ -413,6 +468,10 @@ function Dashboard() {
               required
               margin="normal"
               InputLabelProps={{ shrink: true }}
+              inputProps={{
+                step: 60, // 1 minute steps
+                autoComplete: 'off'
+              }}
             />
             <TextField
               fullWidth
@@ -425,6 +484,14 @@ function Dashboard() {
               required
               margin="normal"
               helperText={t('enterBloodSugarReading')}
+              inputProps={{
+                inputMode: 'decimal',
+                pattern: '[0-9]*',
+                autoComplete: 'off',
+                autoCorrect: 'off',
+                autoCapitalize: 'off',
+                spellCheck: 'false'
+              }}
             />
             <TextField
               fullWidth
@@ -449,6 +516,7 @@ function Dashboard() {
                 type="submit" 
                 variant="contained" 
                 fullWidth
+                data-testid="add-record-button"
               >
                 {t('addRecordButton')}
               </Button>
@@ -461,6 +529,9 @@ function Dashboard() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflowX: 'hidden' }}>
+      {/* Header is rendered at the top-level layout, not here. */}
+      {/* Spacer for fixed header on mobile */}
+      <Box sx={{ height: 64, display: { xs: 'block', md: 'none' } }} />
       {/* Main Content */}
       <Box sx={{ 
         flexGrow: 1, 
@@ -477,12 +548,12 @@ function Dashboard() {
         ) : (
           // Desktop Layout
           <Container maxWidth="lg" sx={{ py: 2 }}>
-            <Grid container spacing={2}>
-              {/* Left Sidebar - Summary Cards */}
-              <Grid item xs={12} md={3}>
-                <Paper elevation={3} sx={{ p: 2, height: 'fit-content' }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Card elevation={3}>
+            <Box sx={{ display: 'flex', minHeight: '80vh', height: '100%' }}>
+              {/* Overview Panel */}
+              <Box sx={{ flex: '0 0 320px', minWidth: 280, display: 'flex', flexDirection: 'column', height: '100%', mr: 2 }}>
+                <Paper elevation={3} sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, flex: 1 }}>
+                    <Card elevation={3} sx={{ flex: 1 }}>
                       <CardContent sx={{ p: 2 }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           {t('latestReading')}
@@ -505,8 +576,7 @@ function Dashboard() {
                         )}
                       </CardContent>
                     </Card>
-                    
-                    <Card elevation={3}>
+                    <Card elevation={3} sx={{ flex: 1 }}>
                       <CardContent sx={{ p: 2 }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           {t('averageLevel')}
@@ -519,8 +589,7 @@ function Dashboard() {
                         </Typography>
                       </CardContent>
                     </Card>
-                    
-                    <Card elevation={3}>
+                    <Card elevation={3} sx={{ flex: 1 }}>
                       <CardContent sx={{ p: 2 }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                           {t('totalRecords')}
@@ -535,15 +604,14 @@ function Dashboard() {
                     </Card>
                   </Box>
                 </Paper>
-              </Grid>
-
-              {/* Right Content - Tabs Section */}
-              <Grid item xs={12} md={9}>
-                <Paper elevation={3} sx={{ mb: 2 }}>
+              </Box>
+              {/* Main Panel */}
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <Paper elevation={3} sx={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
                   <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                     <Tabs value={activeTab} onChange={handleTabChange} aria-label="blood sugar data tabs" size="small">
-                                      <Tab label={t('records')} />
-                <Tab label={t('analytics')} />
+                      <Tab label={t('records')} />
+                      <Tab label={t('analytics')} />
                     </Tabs>
                   </Box>
                   
@@ -557,7 +625,8 @@ function Dashboard() {
                         <Button
                           variant="contained"
                           startIcon={<AddIcon />}
-                          onClick={() => setOpenDialog(true)}
+                          onClick={handleOpenAddRecord}
+                          data-testid="add-record-button"
                         >
                           {t('addRecord')}
                         </Button>
@@ -574,7 +643,7 @@ function Dashboard() {
                               <TableCell><strong>{t('actions')}</strong></TableCell>
                             </TableRow>
                           </TableHead>
-                          <TableBody>
+                          <TableBody data-testid="blood-sugar-records">
                             {records
                               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                               .map((record, index) => {
@@ -605,12 +674,12 @@ function Dashboard() {
                                   </TableCell>
                                   <TableCell>
                                     <Tooltip title={t('edit')}>
-                                      <IconButton onClick={() => handleEdit(record)} color="primary">
+                                      <IconButton onClick={() => handleEdit(record)} color="primary" title="edit">
                                         <EditIcon />
                                       </IconButton>
                                     </Tooltip>
                                     <Tooltip title={t('delete')}>
-                                      <IconButton onClick={() => handleDelete(record.id)} color="error">
+                                      <IconButton onClick={() => handleDelete(record.id)} color="error" title="delete">
                                         <DeleteIcon />
                                       </IconButton>
                                     </Tooltip>
@@ -686,8 +755,8 @@ function Dashboard() {
                     </Box>
                   )}
                 </Paper>
-              </Grid>
-            </Grid>
+              </Box>
+            </Box>
           </Container>
         )}
       </Box>
@@ -709,6 +778,10 @@ function Dashboard() {
               required
               margin="normal"
               InputLabelProps={{ shrink: true }}
+              inputProps={{
+                step: 60, // 1 minute steps
+                autoComplete: 'off'
+              }}
             />
             <TextField
               fullWidth
@@ -721,6 +794,14 @@ function Dashboard() {
               required
               margin="normal"
               helperText={t('enterBloodSugarReading')}
+              inputProps={{
+                inputMode: 'decimal',
+                pattern: '[0-9]*',
+                autoComplete: 'off',
+                autoCorrect: 'off',
+                autoCapitalize: 'off',
+                spellCheck: 'false'
+              }}
             />
             <TextField
               fullWidth
@@ -752,6 +833,7 @@ function Dashboard() {
         <Alert 
           onClose={() => setSnackbar({ ...snackbar, open: false })} 
           severity={snackbar.severity}
+          data-testid={snackbar.severity === 'success' ? 'success-message' : 'error-message'}
         >
           {snackbar.message}
         </Alert>

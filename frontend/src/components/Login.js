@@ -190,16 +190,19 @@ const Login = () => {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     
+    // Add reset code validation: must be 6 digits
+    if (!/^\d{6}$/.test(resetCode)) {
+      setError(t('invalidResetCodeFormat') || 'Reset code must be 6 digits');
+      return;
+    }
     if (formData.newPassword !== formData.confirmNewPassword) {
       setError(t('passwordsDoNotMatch'));
       return;
     }
-
     if (formData.newPassword.length < 6) {
       setError(t('passwordTooShort'));
       return;
     }
-
     try {
       setError(null);
       
@@ -293,7 +296,7 @@ const Login = () => {
     return (
       <Container maxWidth="sm" sx={{ mt: 8 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-          <CircularProgress size={60} />
+          <CircularProgress size={60} data-testid="loading-spinner" />
         </Box>
       </Container>
     );
@@ -636,7 +639,7 @@ const Login = () => {
             {/* Step 2: Verify Code */}
             {registrationStep === 1 && (
               <Box>
-                <Typography variant="body2" sx={{ mb: 2, textAlign: 'center', opacity: 0.9 }}>
+                <Typography variant="body2" sx={{ mb: 2, textAlign: 'center', opacity: 0.9 }} data-testid="verification-message">
                   {t('enterVerificationCode', { email: formData.email })}
                 </Typography>
                 
@@ -682,6 +685,7 @@ const Login = () => {
                     variant="outlined"
                     onClick={handleResendCode}
                     disabled={countdown > 0}
+                    data-testid="resend-verification-button"
                     sx={{
                       borderColor: 'rgba(255,255,255,0.5)',
                       color: 'white',

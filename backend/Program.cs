@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
 using System.Text;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using System.ComponentModel.DataAnnotations;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,6 +15,9 @@ builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connect
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Add validation services
+builder.Services.AddControllers();
+
 // CORS
 builder.Services.AddCors(options =>
 {
@@ -22,6 +27,15 @@ builder.Services.AddCors(options =>
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
+});
+
+// Add session services
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    options.IdleTimeout = TimeSpan.FromHours(24); // Session timeout
 });
 
 var app = builder.Build();
@@ -35,8 +49,10 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.UseCors("AllowReactApp"); // 在开发环境中启用 CORS
+    app.UseCors("AllowReactApp");
 }
+
+app.UseSession();
 
 // React files
 app.UseDefaultFiles(new DefaultFilesOptions
@@ -88,40 +104,58 @@ var authApi = app.MapGroup("/api/auth");
 // Authentication endpoints
 authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(loginDto);
+    if (!Validator.TryValidateObject(loginDto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
     if (user == null || !VerifyPassword(loginDto.Password, user.PasswordHash))
     {
         return Results.BadRequest(new { message = "Invalid email or password" });
     }
 
-    // Always create a session token, but with different expiration times
-    var rememberToken = GenerateRememberToken();
-    var tokenExpiry = loginDto.RememberMe 
-        ? DateTime.UtcNow.AddMonths(3) // 3 months for "remember me"
-        : DateTime.UtcNow.AddHours(24); // 24 hours for regular login
-    
-    user.RememberToken = rememberToken;
-    user.RememberTokenExpiry = tokenExpiry;
-    await db.SaveChangesAsync();
-    
-    // Set HTTP-only cookie with environment-specific options
-    var cookieOptions = new CookieOptions
+    if (loginDto.RememberMe)
     {
-        HttpOnly = true,
-        Expires = tokenExpiry,
-        Path = "/"
-    };
-    if (app.Environment.IsDevelopment())
-    {
-        cookieOptions.Secure = false;
-        cookieOptions.SameSite = SameSiteMode.Lax;
+        // Set remember_token cookie for persistent login
+        var rememberToken = GenerateRememberToken();
+        var tokenExpiry = DateTime.UtcNow.AddMonths(3);
+        user.RememberToken = rememberToken;
+        user.RememberTokenExpiry = tokenExpiry;
+        await db.SaveChangesAsync();
+
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Expires = tokenExpiry,
+            Path = "/"
+        };
+        if (app.Environment.IsDevelopment())
+        {
+            cookieOptions.Secure = false;
+            cookieOptions.SameSite = SameSiteMode.Lax;
+        }
+        else
+        {
+            cookieOptions.Secure = true;
+            cookieOptions.SameSite = SameSiteMode.Strict;
+        }
+        context.Response.Cookies.Append("remember_token", rememberToken, cookieOptions);
     }
     else
     {
-        cookieOptions.Secure = true;
-        cookieOptions.SameSite = SameSiteMode.Strict;
+        // Use server session for non-remember-me login
+        context.Session.SetInt32("user_id", user.Id);
+        // Remove any previous remember_token
+        user.RememberToken = null;
+        user.RememberTokenExpiry = null;
+        await db.SaveChangesAsync();
+        context.Response.Cookies.Delete("remember_token");
     }
-    context.Response.Cookies.Append("remember_token", rememberToken, cookieOptions);
 
     var userDto = new UserDto
     {
@@ -138,14 +172,18 @@ authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbCo
 
 authApi.MapPost("/register", async (RegisterDto registerDto, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(registerDto);
+    if (!Validator.TryValidateObject(registerDto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     if (registerDto.Password != registerDto.ConfirmPassword)
     {
         return Results.BadRequest(new { message = "Passwords do not match" });
-    }
-
-    if (registerDto.Password.Length < 6)
-    {
-        return Results.BadRequest(new { message = "Password must be at least 6 characters long" });
     }
 
     var existingUser = await db.Users.FirstOrDefaultAsync(u => u.Email == registerDto.Email);
@@ -207,6 +245,15 @@ authApi.MapPost("/register", async (RegisterDto registerDto, AppDbContext db) =>
 
 authApi.MapPost("/send-verification", async (SendVerificationDto dto, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     // Allow sending code to any email (registration or password reset)
     var code = Random.Shared.Next(100000, 999999).ToString();
     var expiryTime = DateTime.UtcNow.AddMinutes(10); // Code expires in 10 minutes
@@ -249,6 +296,15 @@ authApi.MapPost("/send-verification", async (SendVerificationDto dto, AppDbConte
 
 authApi.MapPost("/verify-code", async (VerifyCodeDto dto, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
     if (user == null)
     {
@@ -278,34 +334,43 @@ authApi.MapPost("/verify-code", async (VerifyCodeDto dto, AppDbContext db) =>
 authApi.MapGet("/validate-remember-token", async (HttpContext context, AppDbContext db) =>
 {
     var rememberToken = context.Request.Cookies["remember_token"];
-    if (string.IsNullOrEmpty(rememberToken))
+    User? user = null;
+    if (!string.IsNullOrEmpty(rememberToken))
     {
-        return Results.Unauthorized();
+        user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
+        if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
+        {
+            // Clear invalid cookie
+            context.Response.Cookies.Delete("remember_token");
+            return Results.Unauthorized();
+        }
+        // Renew token if it's still valid (extend by 3 months from now)
+        var newExpiry = DateTime.UtcNow.AddMonths(3);
+        user.RememberTokenExpiry = newExpiry;
+        await db.SaveChangesAsync();
+        // Update cookie expiry
+        context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = !app.Environment.IsDevelopment(),
+            SameSite = SameSiteMode.Strict,
+            Expires = newExpiry,
+            Path = "/"
+        });
     }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-    if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
+    else
     {
-        // Clear invalid cookie
-        context.Response.Cookies.Delete("remember_token");
-        return Results.Unauthorized();
+        // Check for session-based login
+        var sessionUserId = context.Session.GetInt32("user_id");
+        if (sessionUserId.HasValue)
+        {
+            user = await db.Users.FindAsync(sessionUserId.Value);
+        }
+        if (user == null)
+        {
+            return Results.Unauthorized();
+        }
     }
-
-    // Renew token if it's still valid (extend by 3 months from now)
-    var newExpiry = DateTime.UtcNow.AddMonths(3);
-    user.RememberTokenExpiry = newExpiry;
-    await db.SaveChangesAsync();
-
-    // Update cookie expiry
-    context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
-    {
-        HttpOnly = true,
-        Secure = !app.Environment.IsDevelopment(),
-        SameSite = SameSiteMode.Strict,
-        Expires = newExpiry,
-        Path = "/"
-    });
-
     var userDto = new UserDto
     {
         Id = user.Id,
@@ -315,7 +380,6 @@ authApi.MapGet("/validate-remember-token", async (HttpContext context, AppDbCont
         IsEmailVerified = user.IsEmailVerified,
         LanguagePreference = user.LanguagePreference
     };
-
     return Results.Ok(userDto);
 });
 
@@ -333,10 +397,10 @@ authApi.MapPost("/logout", async (HttpContext context, AppDbContext db) =>
             await db.SaveChangesAsync();
         }
     }
-
     // Clear the cookie
     context.Response.Cookies.Delete("remember_token");
-    
+    // Clear the session
+    context.Session.Clear();
     return Results.Ok(new { message = "Logged out successfully" });
 });
 
@@ -344,49 +408,80 @@ authApi.MapPost("/logout", async (HttpContext context, AppDbContext db) =>
 authApi.MapGet("/language-preference", async (HttpContext context, AppDbContext db) =>
 {
     var rememberToken = context.Request.Cookies["remember_token"];
-    if (string.IsNullOrEmpty(rememberToken))
+    User? user = null;
+    if (!string.IsNullOrEmpty(rememberToken))
     {
-        return Results.Unauthorized();
+        user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
+        if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
+        {
+            return Results.Unauthorized();
+        }
     }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-    if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
+    else
     {
-        return Results.Unauthorized();
+        var sessionUserId = context.Session.GetInt32("user_id");
+        if (sessionUserId.HasValue)
+        {
+            user = await db.Users.FindAsync(sessionUserId.Value);
+        }
+        if (user == null)
+        {
+            return Results.Unauthorized();
+        }
     }
-
     return Results.Ok(new { languagePreference = user.LanguagePreference });
 });
 
 authApi.MapPut("/language-preference", async (UpdateLanguagePreferenceDto dto, HttpContext context, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     var rememberToken = context.Request.Cookies["remember_token"];
-    if (string.IsNullOrEmpty(rememberToken))
+    User? user = null;
+    if (!string.IsNullOrEmpty(rememberToken))
     {
-        return Results.Unauthorized();
+        user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
+        if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
+        {
+            return Results.Unauthorized();
+        }
     }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-    if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
+    else
     {
-        return Results.Unauthorized();
+        var sessionUserId = context.Session.GetInt32("user_id");
+        if (sessionUserId.HasValue)
+        {
+            user = await db.Users.FindAsync(sessionUserId.Value);
+        }
+        if (user == null)
+        {
+            return Results.Unauthorized();
+        }
     }
-
-    // Validate language preference
-    if (dto.LanguagePreference != "en" && dto.LanguagePreference != "zh")
-    {
-        return Results.BadRequest(new { message = "Invalid language preference. Must be 'en' or 'zh'" });
-    }
-
     user.LanguagePreference = dto.LanguagePreference;
     await db.SaveChangesAsync();
-
     return Results.Ok(new { message = "Language preference updated successfully" });
 });
 
 // Forgot password - send reset code
 authApi.MapPost("/forgot-password", async (ForgotPasswordDto dto, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
     if (user == null)
     {
@@ -414,14 +509,18 @@ authApi.MapPost("/forgot-password", async (ForgotPasswordDto dto, AppDbContext d
 // Reset password with code
 authApi.MapPost("/reset-password", async (ResetPasswordDto dto, AppDbContext db) =>
 {
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
     if (dto.NewPassword != dto.ConfirmPassword)
     {
         return Results.BadRequest(new { message = "Passwords do not match" });
-    }
-
-    if (dto.NewPassword.Length < 6)
-    {
-        return Results.BadRequest(new { message = "Password must be at least 6 characters long" });
     }
 
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
@@ -458,7 +557,10 @@ api.MapGet("/", async (HttpContext context) =>
     {
         return Results.BadRequest(new { message = "Invalid user ID" });
     }
-    var records = await db.BloodSugarRecords.Where(r => r.UserId == userIdInt).ToListAsync();
+    var records = await db.BloodSugarRecords
+        .Where(r => r.UserId == userIdInt)
+        .OrderByDescending(r => r.MeasurementTime)
+        .ToListAsync();
     return Results.Ok(records);
 });
 
@@ -481,6 +583,15 @@ api.MapPost("/", async (CreateBloodSugarRecordDto recordDto, HttpContext context
     if (recordDto == null)
     {
         return Results.BadRequest(new { message = "Invalid request body" });
+    }
+
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(recordDto);
+    if (!Validator.TryValidateObject(recordDto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
     }
 
     var newRecord = new BloodSugarRecord
@@ -507,6 +618,15 @@ api.MapPut("/{id}", async (int id, BloodSugarRecord inputRecord, HttpContext con
     if (inputRecord == null)
     {
         return Results.BadRequest(new { message = "Invalid request body" });
+    }
+
+    // Validate model using data annotations
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(inputRecord);
+    if (!Validator.TryValidateObject(inputRecord, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
     }
 
     var record = await db.BloodSugarRecords.FindAsync(id);
@@ -572,6 +692,22 @@ app.MapFallback(async context =>
     else
     {
         context.Response.StatusCode = 404;
+    }
+});
+
+// Add global error handler middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        var errorJson = System.Text.Json.JsonSerializer.Serialize(new { error = ex.Message });
+        await context.Response.WriteAsync(errorJson);
     }
 });
 

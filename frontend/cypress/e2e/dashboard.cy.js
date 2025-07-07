@@ -1,77 +1,103 @@
 /* global cy, Cypress */
 /* eslint-env cypress */
-describe('Dashboard', () => {
+import { formatLocalDateForInput } from '../support/commands';
+
+describe('Dashboard CRUD', () => {
   beforeEach(() => {
-    // Login before each test
-    cy.login('weiwangfly@hotmail.com', 'test123')
-    // Ensure at least one record exists
-    cy.addBloodSugarRecord(120, 'Test record for list')
-  })
+    cy.loginAndEnsureEnglish('weiwangfly@hotmail.com', 'AsDfJkL123');
+  });
 
-  it('should display dashboard after login', () => {
-    cy.url().should('include', '/dashboard')
-    cy.get('[data-testid="dashboard-title"]').should('be.visible')
-  })
+  it('should display dashboard and records table', () => {
+    cy.get('[data-testid="blood-sugar-records"]').should('be.visible');
+  });
 
-  it('should display blood sugar records', () => {
-    cy.get('[data-testid="blood-sugar-records"]').should('be.visible')
-    cy.get('[data-testid="blood-sugar-records"]').should('contain', 'Test record for list')
-  })
-
-  it('should have add record functionality', () => {
-    cy.get('[data-testid="add-record-button"]').should('be.visible')
-  })
+  it('should pre-populate measure time within 5 seconds of now', () => {
+    const now = new Date();
+    now.setSeconds(0, 0); // Round to nearest minute to match input
+    cy.clock(now);
+    cy.visit('/');
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="measurementTime"]').invoke('val').then(val => {
+      const inputDate = new Date(val);
+      const diff = Math.abs(inputDate.getTime() - now.getTime());
+      expect(diff).to.be.lessThan(5000);
+    });
+  });
 
   it('should add a new blood sugar record', () => {
-    const testLevel = 125
-    const testNotes = 'Cypress test record'
+    const uniqueNote = `Test record ${Date.now()}`;
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('85');
+    cy.get('textarea[name="notes"]').type(uniqueNote);
+    cy.get('form').submit();
+    cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote);
+  });
+
+  it('should edit a blood sugar record', () => {
+    const uniqueNote = `Edited record ${Date.now()}`;
+    cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
+      cy.get('button[title="edit"]').click();
+    });
+    cy.get('input[name="level"]').clear().type('95');
+    cy.get('textarea[name="notes"]').clear().type(uniqueNote);
+    cy.get('form').submit();
+    cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote);
+  });
+
+  it('should delete a blood sugar record', () => {
+    // Records are ordered by measurement time descending (newest first)
+    // So first() will be the most recent record
+    cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
+      cy.get('button[title="delete"]').click();
+    });
+    cy.on('window:confirm', () => true);
+    cy.get('[data-testid="success-message"]').should('be.visible');
+  });
+
+  it('should create multiple records successfully', () => {
+    const uniqueNote1 = `First record ${Date.now()}`;
+    const uniqueNote2 = `Second record ${Date.now() + 1}`;
+    // Add first record
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('70');
+    cy.get('textarea[name="notes"]').type(uniqueNote1);
+    cy.get('form').submit();
+    cy.get('[data-testid="success-message"]').should('be.visible');
+    // Add second record
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('80');
+    cy.get('textarea[name="notes"]').type(uniqueNote2);
+    cy.get('form').submit();
+    cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').should('have.length.greaterThan', 1);
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote1);
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote2);
+  });
+
+  it('should add a record with next year date and verify it appears on first row', () => {
+    const uniqueNote = `Next year record ${Date.now()}`;
+    const nextYear = new Date().getFullYear() + 1;
+    const nextYearDate = `${nextYear}-01-01T12:00`;
     
-    cy.get('[data-testid="add-record-button"]').click()
-    cy.get('input[name="level"]').type(testLevel)
-    cy.get('input[name="notes"]').type(testNotes)
-    cy.get('form').submit()
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('60');
+    cy.get('textarea[name="notes"]').type(uniqueNote);
+    cy.get('input[name="measurementTime"]').clear().type(nextYearDate);
+    cy.get('form').submit();
+    cy.get('[data-testid="success-message"]').should('be.visible');
     
-    // Verify the record was added
-    cy.get('[data-testid="blood-sugar-records"]').should('contain', testLevel)
-    cy.get('[data-testid="blood-sugar-records"]').should('contain', testNotes)
-  })
-
-  it('should display charts and statistics', () => {
-    cy.get('[data-testid="blood-sugar-chart"]').should('be.visible')
-    cy.get('[data-testid="statistics-panel"]').should('be.visible')
-  })
-
-  it('should have responsive design on mobile', () => {
-    cy.viewport('iphone-x')
-    cy.get('[data-testid="mobile-menu-button"]').should('be.visible')
-    cy.get('[data-testid="mobile-menu-button"]').click()
-    cy.get('[data-testid="mobile-sidebar"]').should('be.visible')
-  })
-
-  it('should allow language switching', () => {
-    cy.get('[data-testid="language-selector"]').should('be.visible')
-    cy.switchLanguage('zh')
-    // Verify some text changed to Chinese
-    cy.get('[data-testid="dashboard-title"]').should('contain', '仪表盘')
-  })
-
-  it('should have logout functionality', () => {
-    cy.get('[data-testid="profile-menu"]').click()
-    cy.get('[data-testid="logout-button"]').should('be.visible')
-    cy.get('[data-testid="logout-button"]').click()
-    cy.url().should('include', '/login')
-  })
-
-  it('should handle navigation between sections', () => {
-    cy.get('[data-testid="navigation-menu"]').should('be.visible')
-    // Test navigation to different sections if they exist
-    cy.get('[data-testid="navigation-menu"]').within(() => {
-      cy.get('a').first().click()
-    })
-  })
-
-  it('should display user information', () => {
-    cy.get('[data-testid="user-email"]').should('be.visible')
-    cy.get('[data-testid="user-email"]').should('contain', 'weiwangfly@hotmail.com')
-  })
-}) 
+    // Verify the record appears on the first row (since it's the most recent date)
+    cy.get('[data-testid="blood-sugar-records"] tr').first().should('contain', uniqueNote);
+    cy.get('[data-testid="blood-sugar-records"] tr').first().should('contain', `${nextYear}-01-01 12:00:00`);
+    
+    // Delete the record to clean up
+    cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
+      cy.get('button[title="delete"]').click();
+    });
+    cy.on('window:confirm', () => true);
+    cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').first().should('not.contain', uniqueNote);
+  });
+}); 

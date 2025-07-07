@@ -12,12 +12,13 @@ export const useLanguage = () => {
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguageState] = useState('en');
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Load language preference from localStorage on mount
   useEffect(() => {
     const savedLanguage = localStorage.getItem('languagePreference');
-    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'zh')) {
+    if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'zh' || savedLanguage === 'es' || savedLanguage === 'fr')) {
       setLanguageState(savedLanguage);
     }
   }, []);
@@ -81,7 +82,7 @@ export const LanguageProvider = ({ children }) => {
         // If backend doesn't have a preference, check if we have one in localStorage
         // This handles the case where a user registered and we need to transfer their preference
         const localPreference = localStorage.getItem('languagePreference');
-        if (localPreference && (localPreference === 'en' || localPreference === 'zh')) {
+        if (localPreference && (localPreference === 'en' || localPreference === 'zh' || localPreference === 'es' || localPreference === 'fr')) {
           // Transfer localStorage preference to backend
           try {
             await fetch('/api/auth/language-preference', {
@@ -105,7 +106,7 @@ export const LanguageProvider = ({ children }) => {
       console.error('Could not load language preference from backend:', error.message);
       // Fallback to localStorage preference
       const localPreference = localStorage.getItem('languagePreference');
-      if (localPreference && (localPreference === 'en' || localPreference === 'zh')) {
+      if (localPreference && (localPreference === 'en' || localPreference === 'zh' || localPreference === 'es' || localPreference === 'fr')) {
         setLanguageState(localPreference);
       }
     }
@@ -132,7 +133,7 @@ export const LanguageProvider = ({ children }) => {
       
       // Records Table
       bloodSugarRecords: 'Blood Sugar Records',
-      addRecord: 'Add Record',
+      addRecord: 'Add New Record',
       dateTime: 'Date & Time',
       bloodSugarLevel: 'Blood Sugar (mmol/L)',
       status: 'Status',
@@ -160,7 +161,7 @@ export const LanguageProvider = ({ children }) => {
       optionalNotes: 'Optional notes about this reading',
       cancel: 'Cancel',
       update: 'Update',
-      addRecordButton: 'Add Record',
+      addRecordButton: 'Add New Record',
       
       // Status Labels
       low: 'Low',
@@ -182,6 +183,11 @@ export const LanguageProvider = ({ children }) => {
       language: 'Language',
       english: 'English',
       chinese: '中文',
+      spanish: 'Español',
+      french: 'Français',
+      save: 'Save',
+      languageSavedSuccessfully: 'Language saved successfully',
+      failedToSaveLanguage: 'Failed to save language preference',
       
       // Header
       logout: 'Logout',
@@ -268,7 +274,7 @@ export const LanguageProvider = ({ children }) => {
       
       // Records Table
       bloodSugarRecords: '血糖记录',
-      addRecord: '添加记录',
+      addRecord: '添加新记录',
       dateTime: '日期和时间',
       bloodSugarLevel: '血糖 (mmol/L)',
       status: '状态',
@@ -296,7 +302,7 @@ export const LanguageProvider = ({ children }) => {
       optionalNotes: '关于此读数的可选备注',
       cancel: '取消',
       update: '更新',
-      addRecordButton: '添加记录',
+      addRecordButton: '添加新记录',
       
       // Status Labels
       low: '低',
@@ -318,6 +324,9 @@ export const LanguageProvider = ({ children }) => {
       language: 'Language',
       english: 'English',
       chinese: '中文',
+      save: '保存',
+      languageSavedSuccessfully: '语言设置保存成功',
+      failedToSaveLanguage: '保存语言设置失败',
       
       // Header
       logout: '退出登录',

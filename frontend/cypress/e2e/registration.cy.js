@@ -1,113 +1,82 @@
 /* global cy, Cypress */
 /* eslint-env cypress */
-describe('Registration', () => {
+describe('Registration Flow', () => {
   beforeEach(() => {
-    cy.visit('/login')
-    // Switch to registration tab
-    cy.get('[role="tab"]').last().click()
-  })
+    cy.visit('/login');
+    cy.ensureEnglishLanguage();
+    cy.get('button[role="tab"]').eq(1).click();
+  });
 
-  it('should display registration form', () => {
-    cy.get('input[name="email"]').should('be.visible')
-    cy.get('input[name="password"]').should('be.visible')
-    cy.get('input[name="confirmPassword"]').should('be.visible')
-  })
+  function uniqueEmail() {
+    const ts = Date.now();
+    return `a1143179+${ts}@gmail.com`;
+  }
 
-  it('should show registration stepper', () => {
-    cy.get('[data-testid="registration-stepper"]').should('be.visible')
-    cy.get('[data-testid="registration-step-0"]').should('have.class', 'Mui-active')
-  })
+  it('should register a new user', () => {
+    const email = uniqueEmail();
+    cy.intercept('POST', '/api/auth/send-verification', {
+      statusCode: 200,
+      body: { message: 'Verification code sent', code: '123456' }
+    }).as('sendVerificationCode');
+    cy.intercept('POST', '/api/auth/verify-code', {
+      statusCode: 200,
+      body: { message: 'Email verified successfully' }
+    }).as('verifyCode');
+    cy.get('input[name="email"]').type(email);
+    cy.contains('Send Verification Code').click();
+    cy.wait('@sendVerificationCode');
+    cy.get('input[type="text"]').should('be.visible').type('123456');
+    cy.contains('Verify Code').click();
+    cy.wait('@verifyCode');
+    cy.get('input[name="password"]').should('be.visible').type('TestPassword123');
+    cy.get('input[name="confirmPassword"]').should('be.visible').type('TestPassword123');
+    cy.get('form').submit();
+    cy.url().should('include', '/login');
+    cy.get('button[role="tab"]').eq(0).click();
+    cy.get('input[name="email"]').should('be.visible').clear().type(email);
+    cy.get('input[name="password"]').should('be.visible').clear().type('TestPassword123');
+    cy.get('form').submit();
+    cy.url().should('include', '/dashboard');
+    cy.get('[data-testid="add-record-button"]').should('be.visible');
+  });
 
-  it('should validate email format', () => {
-    cy.get('input[name="email"]').type('invalid-email')
-    cy.get('form').submit()
-    
-    // Should show validation error
-    cy.get('[data-testid="error-message"]').should('be.visible')
-  })
-
-  it('should validate password confirmation', () => {
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('input[name="password"]').type('password123')
-    cy.get('input[name="confirmPassword"]').type('differentpassword')
-    cy.get('form').submit()
-    
-    cy.get('[data-testid="error-message"]').should('be.visible')
-    cy.get('[data-testid="error-message"]').should('contain', 'Passwords do not match')
-  })
-
-  it('should validate password length', () => {
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('input[name="password"]').type('123')
-    cy.get('input[name="confirmPassword"]').type('123')
-    cy.get('form').submit()
-    
-    cy.get('[data-testid="error-message"]').should('be.visible')
-    cy.get('[data-testid="error-message"]').should('contain', 'at least 6 characters')
-  })
-
-  it('should send verification code', () => {
-    cy.get('input[name="email"]').type('newuser@example.com')
-    cy.get('[data-testid="send-verification-button"]').click()
-    
-    // Should move to verification step
-    cy.get('[data-testid="registration-step-1"]').should('have.class', 'Mui-active')
-    cy.get('[data-testid="verification-code-input"]').should('be.visible')
-  })
-
-  it('should verify email with code', () => {
-    // First send verification code
-    cy.get('input[name="email"]').type('newuser@example.com')
-    cy.get('[data-testid="send-verification-button"]').click()
-    
-    // Enter verification code (in development, this might be shown in the response)
-    cy.get('[data-testid="verification-code-input"]').type('123456')
-    cy.get('[data-testid="verify-code-button"]').click()
-    
-    // Should move to password step
-    cy.get('[data-testid="registration-step-2"]').should('have.class', 'Mui-active')
-  })
-
-  it('should complete registration process', () => {
-    // This is a comprehensive test that goes through the entire registration flow
-    const testEmail = `test${Date.now()}@example.com`
-    
-    // Step 1: Enter email
-    cy.get('input[name="email"]').type(testEmail)
-    cy.get('[data-testid="send-verification-button"]').click()
-    
-    // Step 2: Verify email (assuming code is 123456 in development)
-    cy.get('[data-testid="verification-code-input"]').type('123456')
-    cy.get('[data-testid="verify-code-button"]').click()
-    
-    // Step 3: Set password
-    cy.get('input[name="password"]').type('password123')
-    cy.get('input[name="confirmPassword"]').type('password123')
-    cy.get('form').submit()
-    
-    // Should show success message and switch to login tab
-    cy.get('[data-testid="success-message"]').should('be.visible')
-    cy.get('[role="tab"]').first().should('have.attr', 'aria-selected', 'true')
-  })
-
-  it('should handle resend verification code', () => {
-    cy.get('input[name="email"]').type('test@example.com')
-    cy.get('[data-testid="send-verification-button"]').click()
-    
-    // Wait for countdown to finish
-    cy.get('[data-testid="resend-button"]').should('be.disabled')
-    cy.wait(60000) // Wait for 60 seconds (countdown)
-    cy.get('[data-testid="resend-button"]').should('not.be.disabled')
-    
-    cy.get('[data-testid="resend-button"]').click()
-    cy.get('[data-testid="success-message"]').should('be.visible')
-  })
+  it('should show error for mismatched passwords', () => {
+    const email = uniqueEmail();
+    cy.intercept('POST', '/api/auth/send-verification', {
+      statusCode: 200,
+      body: { message: 'Verification code sent', code: '123456' }
+    }).as('sendVerificationCode');
+    cy.intercept('POST', '/api/auth/verify-code', {
+      statusCode: 200,
+      body: { message: 'Email verified successfully' }
+    }).as('verifyCode');
+    cy.get('input[name="email"]').type(email);
+    cy.contains('Send Verification Code').click();
+    cy.wait('@sendVerificationCode');
+    cy.get('input[type="text"]').should('be.visible').type('123456');
+    cy.contains('Verify Code').click();
+    cy.wait('@verifyCode');
+    cy.get('input[name="password"]').should('be.visible').type('TestPassword123');
+    cy.get('input[name="confirmPassword"]').should('be.visible').type('WrongPassword');
+    cy.get('form').submit();
+    cy.get('[data-testid="error-message"]').should('be.visible');
+  });
 
   it('should show error for existing email', () => {
-    cy.get('input[name="email"]').type('existing@example.com')
-    cy.get('[data-testid="send-verification-button"]').click()
-    
-    cy.get('[data-testid="error-message"]').should('be.visible')
-    cy.get('[data-testid="error-message"]').should('contain', 'already exists')
-  })
-}) 
+    cy.intercept('POST', '/api/auth/send-verification', {
+      statusCode: 200,
+      body: { message: 'Verification code sent', code: '123456' }
+    }).as('sendVerificationCode');
+    cy.intercept('POST', '/api/auth/verify-code', {
+      statusCode: 400,
+      body: { message: 'User with this email already exists' }
+    }).as('verifyCode');
+    cy.get('input[name="email"]').type('weiwangfly@hotmail.com');
+    cy.contains('Send Verification Code').click();
+    cy.wait('@sendVerificationCode');
+    cy.get('input[type="text"]').should('be.visible').type('123456');
+    cy.contains('Verify Code').click();
+    cy.wait('@verifyCode');
+    cy.get('[data-testid="error-message"]').should('be.visible').and('contain', 'already exists');
+  });
+}); 

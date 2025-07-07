@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -34,10 +34,15 @@ const AppWithProviders = ({ children }) => {
 // Main App Layout with Header
 const AppLayout = () => {
   const { isAuthenticated } = useAuth();
+  const [mobilePage, setMobilePage] = useState('dashboard'); // 'dashboard', 'analytics', 'add'
+
+  const handleMobileNavigate = (page) => {
+    setMobilePage(page);
+  };
 
   return (
     <>
-      <Header />
+      <Header onMobileNavigate={handleMobileNavigate} />
       <Routes>
         <Route 
           path="/login" 
@@ -51,7 +56,7 @@ const AppLayout = () => {
           path="/dashboard" 
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <Dashboard mobilePage={mobilePage} onMobilePageChange={handleMobileNavigate} />
             </ProtectedRoute>
           } 
         />
