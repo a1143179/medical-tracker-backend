@@ -145,8 +145,6 @@ jobs:
         file: ./Dockerfile
         push: true
         tags: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
 
     - name: Deploy to Azure Web App (ZIP)
       if: github.ref == 'refs/heads/main'
