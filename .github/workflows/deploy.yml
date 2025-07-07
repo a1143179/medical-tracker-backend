@@ -146,13 +146,13 @@ jobs:
         push: true
         tags: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
 
-    - name: Deploy to Azure Web App (ZIP)
-      if: github.ref == 'refs/heads/main'
-      uses: azure/webapps-deploy@v3
-      with:
-        app-name: ${{ env.AZURE_WEBAPP_NAME }}
-        package: ./deployment-package.zip
-        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+    # - name: Deploy to Azure Web App (ZIP)
+    #   if: github.ref == 'refs/heads/main'
+    #   uses: azure/webapps-deploy@v3
+    #   with:
+    #     app-name: ${{ env.AZURE_WEBAPP_NAME }}
+    #     package: ./deployment-package.zip
+    #     publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
 
     - name: Deploy to Azure Web App (Container)
       if: github.ref == 'refs/heads/main'
