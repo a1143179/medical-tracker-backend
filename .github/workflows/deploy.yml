@@ -120,6 +120,9 @@ jobs:
       working-directory: ./backend
       run: dotnet publish --configuration ${{ env.BUILD_CONFIGURATION }} --output ./publish --no-build
 
+    - name: Ensure wwwroot exists
+      run: mkdir -p backend/publish/wwwroot
+
     - name: Copy frontend build to backend publish
       run: |
         cp -r frontend/build/* backend/publish/wwwroot/
