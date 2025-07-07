@@ -4,6 +4,16 @@
     "@babel/preset-react": "^7.27.1",
     "eslint": "^8.57.1",
     "eslint-plugin-cypress": "^2.13.2",
-    "eslint-plugin-react": "^7.37.5"
+    "eslint-plugin-react": "^7.37.5",
+    "husky": "^8.0.0"
+  },
+  "scripts": {
+    "prepare": "husky install"
+  },
+  "lint-staged": {
+    "frontend/src/**/*.{js,jsx}": [
+      "eslint --fix",
+      "git add"
+    ]
   }
 }
