@@ -12,7 +12,6 @@ export const useLanguage = () => {
 
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguageState] = useState('en');
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // Load language preference from localStorage on mount

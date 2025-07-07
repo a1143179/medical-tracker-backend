@@ -16,11 +16,10 @@ import {
   ListItemText,
   ListItemIcon,
   Divider,
-  Button,
   Snackbar,
   Alert
 } from '@mui/material';
-import { Logout, Language, Menu as MenuIcon, Dashboard, Person, Save, BarChart } from '@mui/icons-material';
+import { Logout, Language, Menu as MenuIcon, Dashboard, Person } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 
@@ -29,7 +28,6 @@ const Header = ({ onMobileNavigate }) => {
   const { language, setLanguage, t } = useLanguage();
   const [anchorEl, setAnchorEl] = React.useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const [selectedLanguage, setSelectedLanguage] = useState(language);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
 
   const handleMenu = (event) => {
@@ -52,7 +50,6 @@ const Header = ({ onMobileNavigate }) => {
 
   const handleLanguageChange = async (event) => {
     const newLanguage = event.target.value;
-    setSelectedLanguage(newLanguage);
     try {
       await setLanguage(newLanguage);
     } catch (error) {
@@ -212,7 +209,7 @@ const Header = ({ onMobileNavigate }) => {
           </ListItem>
           <ListItem onClick={() => { if (typeof onMobileNavigate === 'function') onMobileNavigate('analytics'); handleMobileMenuToggle(); }}>
             <ListItemIcon>
-              <BarChart />
+              <Dashboard />
             </ListItemIcon>
             <ListItemText primary={t('analytics')} />
           </ListItem>

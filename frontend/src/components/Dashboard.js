@@ -60,8 +60,8 @@ import {
 const API_URL = '/api/records';
 
 function Dashboard({ mobilePage, onMobilePageChange }) {
-  const { user, logout } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { user } = useAuth();
+  const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -265,20 +265,6 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
       notes: ''
     });
     setOpenDialog(true);
-  };
-
-  const handleOpenMobileAddRecord = () => {
-    // Update the measure time to current local time when opening mobile add record
-    const now = new Date();
-    const localDateTime = formatDateTimeForInput(now);
-    
-    setCurrentRecord({ 
-      id: null, 
-      measurementTime: localDateTime, 
-      level: '', 
-      notes: ''
-    });
-    handleMobilePageChange('add');
   };
 
   const getBloodSugarStatus = (level) => {

@@ -16,16 +16,14 @@ import {
   Checkbox,
   Stepper,
   Step,
-  StepLabel,
-  FormControl
+  StepLabel
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
-import { useLanguage } from '../contexts/LanguageContext';
 import emailService from '../services/emailService';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Login = () => {
   const { login, register, loading } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const [error, setError] = useState(null);
@@ -48,6 +46,8 @@ const Login = () => {
     newPassword: '',
     confirmNewPassword: ''
   });
+
+  const { t } = useLanguage();
 
   // Countdown timer for resend code
   useEffect(() => {
@@ -93,7 +93,7 @@ const Login = () => {
 
   const handleSendVerificationCode = async () => {
     if (!formData.email) {
-      setError(t('enterEmailFirst'));
+      setError('Enter email first');
       return;
     }
 
@@ -105,9 +105,9 @@ const Login = () => {
       const code = Math.floor(100000 + Math.random() * 900000).toString();
       
       // Use email service to send verification code
-      const result = await emailService.sendVerificationCode(formData.email, code);
+      await emailService.sendVerificationCode(formData.email, code);
       
-      setSuccess(t('verificationCodeSent'));
+      setSuccess('Verification code sent');
       setRegistrationStep(1);
       setCountdown(60); // 60 seconds countdown
     } catch (error) {
@@ -121,7 +121,7 @@ const Login = () => {
     try {
       setError(null);
       await emailService.verifyCode(formData.email, verificationCode);
-      setSuccess(t('emailVerifiedSuccessfully'));
+      setSuccess('Email verified successfully');
       setRegistrationStep(2);
     } catch (error) {
       setError(error.message);
@@ -155,7 +155,7 @@ const Login = () => {
 
   const handleSendResetCode = async () => {
     if (!formData.email) {
-      setError(t('enterEmailFirst'));
+      setError('Enter email first');
       return;
     }
 
@@ -192,15 +192,15 @@ const Login = () => {
     
     // Add reset code validation: must be 6 digits
     if (!/^\d{6}$/.test(resetCode)) {
-      setError(t('invalidResetCodeFormat') || 'Reset code must be 6 digits');
+      setError('Reset code must be 6 digits');
       return;
     }
     if (formData.newPassword !== formData.confirmNewPassword) {
-      setError(t('passwordsDoNotMatch'));
+      setError('Passwords do not match');
       return;
     }
     if (formData.newPassword.length < 6) {
-      setError(t('passwordTooShort'));
+      setError('Password too short');
       return;
     }
     try {
@@ -286,9 +286,9 @@ const Login = () => {
 
   const getRegistrationSteps = () => {
     return [
-      t('enterEmail'),
-      t('verifyEmail'),
-      t('setPassword')
+      'Enter Email',
+      'Verify Email',
+      'Set Password'
     ];
   };
 

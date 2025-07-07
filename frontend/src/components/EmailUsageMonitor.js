@@ -9,24 +9,23 @@ const EmailUsageMonitor = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchUsage = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const usageData = await emailService.getEmailUsage();
-      setUsage(usageData);
-    } catch (err) {
-      setError(t('failedToLoadEmailUsage'));
-      console.error('Usage fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchUsage = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const usageData = await emailService.getEmailUsage();
+        setUsage(usageData);
+      } catch (err) {
+        setError(t('failedToLoadEmailUsage'));
+        console.error('Usage fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
     fetchUsage();
-  }, [fetchUsage]);
+  }, [t]);
 
   if (loading) {
     return <Alert variant="info">{t('loadingEmailUsage')}</Alert>;
