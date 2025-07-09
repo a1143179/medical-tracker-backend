@@ -487,7 +487,6 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 <RechartsTooltip 
                   formatter={(value, name, props) => {
                     if (name === 'level') {
-                      const dataPoint = props.payload;
                       return [
                         value ? `${value} mmol/L` : t('noData'), 
                         t('average')
@@ -832,7 +831,6 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                               <RechartsTooltip 
                                 formatter={(value, name, props) => {
                                   if (name === 'level') {
-                                    const dataPoint = props.payload;
                                     return [
                                       value ? `${value} mmol/L` : t('noData'), 
                                       t('average')
