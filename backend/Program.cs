@@ -93,12 +93,7 @@ builder.Services.AddAuthentication(options =>
 var app = builder.Build();
 
 // Configure static files to serve from frontend build directory
-app.UseStaticFiles(new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "..", "frontend", "build")),
-    RequestPath = ""
-});
+app.UseStaticFiles(); // Serve from wwwroot by default
 
 // Log the current ASPNETCORE_ENVIRONMENT value
 var env = app.Environment.EnvironmentName;
@@ -115,11 +110,7 @@ if (app.Environment.IsDevelopment())
 app.UseSession();
 
 // Add fallback to serve index.html for client-side routing
-app.MapFallbackToFile("index.html", new StaticFileOptions
-{
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "..", "frontend", "build"))
-});
+app.MapFallbackToFile("index.html");
 
 // 3. define API endpoints (before authentication middleware)
 var api = app.MapGroup("/api/records");
@@ -129,7 +120,7 @@ var authApi = app.MapGroup("/api/auth");
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 // Google OAuth login endpoint
-authApi.MapGet("/login", async (HttpContext context) =>
+authApi.MapGet("/login", (HttpContext context) =>
 {
     var returnUrl = context.Request.Query["returnUrl"].ToString();
     if (string.IsNullOrEmpty(returnUrl))
