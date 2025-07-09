@@ -4,9 +4,9 @@ This document explains how to set up environment variables for different deploym
 
 ## Environment Configuration
 
-### Development & Staging
-- **Mailjet Account**: Staging account (sandbox mode)
-- **Environment Variables**: `MAILJET_STAGING_API_KEY`, `MAILJET_STAGING_API_SECRET`
+### Development
+- **Mailjet Account**: Development account (sandbox mode)
+- **Environment Variables**: `MAILJET_API_KEY`, `MAILJET_API_SECRET`
 - **Sandbox Mode**: Enabled (emails don't reach real users)
 
 ### Production
@@ -20,20 +20,20 @@ This document explains how to set up environment variables for different deploym
 
 #### Windows (PowerShell)
 ```powershell
-$env:MAILJET_STAGING_API_KEY="your_staging_api_key"
-$env:MAILJET_STAGING_API_SECRET="your_staging_api_secret"
+$env:MAILJET_API_KEY="your_api_key"
+$env:MAILJET_API_SECRET="your_api_secret"
 ```
 
 #### Windows (Command Prompt)
 ```cmd
-set MAILJET_STAGING_API_KEY=your_staging_api_key
-set MAILJET_STAGING_API_SECRET=your_staging_api_secret
+set MAILJET_API_KEY=your_api_key
+set MAILJET_API_SECRET=your_api_secret
 ```
 
 #### macOS/Linux
 ```bash
-export MAILJET_STAGING_API_KEY="your_staging_api_key"
-export MAILJET_STAGING_API_SECRET="your_staging_api_secret"
+export MAILJET_API_KEY="your_api_key"
+export MAILJET_API_SECRET="your_api_secret"
 ```
 
 ### 2. Run the Application
@@ -56,13 +56,6 @@ npm start
 3. **Click "New repository secret"**
 4. **Add the following secrets:**
 
-#### For Staging/Development
-- **Name**: `MAILJET_STAGING_API_KEY`
-- **Value**: Your staging Mailjet API key
-
-- **Name**: `MAILJET_STAGING_API_SECRET`
-- **Value**: Your staging Mailjet API secret
-
 #### For Production
 - **Name**: `MAILJET_PRODUCTION_API_KEY`
 - **Value**: Your production Mailjet API key
@@ -73,17 +66,16 @@ npm start
 ### How GitHub Uses These Secrets
 
 The GitHub Actions workflow automatically:
-1. **Tests**: Uses staging credentials for all tests
-2. **Staging Deployment**: Uses staging credentials when deploying from `develop` branch
-3. **Production Deployment**: Uses production credentials when deploying from `main` branch
+1. **Tests**: Uses development credentials for all tests
+2. **Production Deployment**: Uses production credentials when deploying from `main` branch
 
 ## Environment Variable Priority
 
 The application uses the following priority for Mailjet configuration:
 
 1. **Environment Variables** (highest priority)
-   - `MAILJET_STAGING_API_KEY` / `MAILJET_STAGING_API_SECRET`
-   - `MAILJET_PRODUCTION_API_KEY` / `MAILJET_PRODUCTION_API_SECRET`
+   - `MAILJET_API_KEY` / `MAILJET_API_SECRET` (development)
+   - `MAILJET_PRODUCTION_API_KEY` / `MAILJET_PRODUCTION_API_SECRET` (production)
 
 2. **Configuration Files** (fallback)
    - `appsettings.Development.json` (for development)
@@ -92,7 +84,7 @@ The application uses the following priority for Mailjet configuration:
 ## Security Best Practices
 
 ### ✅ Do's
-- Use different Mailjet accounts for staging and production
+- Use different Mailjet accounts for development and production
 - Store secrets in GitHub repository secrets (never commit to code)
 - Use sandbox mode for development and testing
 - Rotate API keys regularly
@@ -101,7 +93,7 @@ The application uses the following priority for Mailjet configuration:
 - Never commit API keys to source code
 - Never use production credentials in development
 - Never share API keys in logs or error messages
-- Never use the same account for staging and production
+- Never use the same account for development and production
 
 ## Troubleshooting
 
@@ -113,7 +105,7 @@ The application uses the following priority for Mailjet configuration:
 
 2. **Emails not sending in development**
    - Ensure sandbox mode is enabled
-   - Check that staging API credentials are valid
+   - Check that API credentials are valid
 
 3. **GitHub Actions failing**
    - Verify secrets are added to GitHub repository
@@ -133,8 +125,8 @@ curl http://localhost:5000/api/test/retrieve-codes
 
 ## Mailjet Account Setup
 
-### Staging Account
-1. Create a new Mailjet account for staging
+### Development Account
+1. Create a new Mailjet account for development
 2. Enable sandbox mode
 3. Use free tier (sufficient for development/testing)
 4. Set up test email addresses
