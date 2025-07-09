@@ -255,6 +255,20 @@ export const LanguageProvider = ({ children }) => {
       passwordResetSuccessMessage: 'Your password has been reset successfully. You can now log in with your new password.',
       backToLogin: 'Back to Login',
       back: 'Back',
+
+      // Login Page Specific
+      whatYoullGet: "What you'll get:",
+      trackBloodSugar: 'Track blood sugar levels with precision',
+      viewTrends: 'View trends and analytics',
+      exportData: 'Export data for healthcare providers',
+      welcomeBack: 'Welcome Back',
+      signInToAccess: 'Sign in to access your personalized blood sugar tracking dashboard',
+      signInWithGoogle: 'Sign in with Google',
+      secureAuth: 'Secure authentication powered by Google',
+      byContinuing: 'By continuing, you agree to our',
+      termsOfService: 'Terms of Service',
+      and: 'and',
+      privacyPolicy: 'Privacy Policy',
     },
     zh: {
       // App Bar
@@ -397,6 +411,20 @@ export const LanguageProvider = ({ children }) => {
       passwordResetSuccessMessage: '您的密码已成功重置。您现在可以使用新密码登录。',
       backToLogin: '返回登录',
       back: '返回',
+
+      // Login Page Specific
+      whatYoullGet: '您将获得：',
+      trackBloodSugar: '精准追踪血糖水平',
+      viewTrends: '查看趋势和分析',
+      exportData: '导出数据供医疗人员使用',
+      welcomeBack: '欢迎回来',
+      signInToAccess: '登录以访问您的个性化血糖追踪仪表板',
+      signInWithGoogle: '使用 Google 登录',
+      secureAuth: '由 Google 提供安全认证',
+      byContinuing: '继续即表示您同意我们的',
+      termsOfService: '服务条款',
+      and: '和',
+      privacyPolicy: '隐私政策',
     }
   };
 
