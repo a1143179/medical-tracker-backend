@@ -22,9 +22,9 @@ COPY --from=dotnet-build /app/publish .
 # get the frontend built files
 COPY --from=react-build /app/build ./wwwroot
 
-# expose port 3000 for the ASP.NET Core app
-EXPOSE 3000
-ENV ASPNETCORE_URLS=http://+:3000
+# expose port 80 for the ASP.NET Core app (required by Azure)
+EXPOSE 80
+ENV ASPNETCORE_URLS=http://+:80
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 ENTRYPOINT ["dotnet", "backend.dll"]
