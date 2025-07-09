@@ -45,6 +45,9 @@ jobs:
     - name: Install backend dependencies
       run: dotnet restore ./backend/backend.csproj
 
+    - name: Build backend
+      run: dotnet build ./backend/backend.csproj --configuration Debug
+
     - name: Install frontend dependencies
       run: |
         cd frontend
