@@ -14,7 +14,7 @@ module.exports = {
     },
     requireConfigFile: false
   },
-  plugins: ['react'],
+  plugins: ['react', 'cypress'],
   extends: [
     'eslint:recommended',
     'plugin:react/recommended'
@@ -32,22 +32,15 @@ module.exports = {
     {
       files: [
         'frontend/cypress/**/*.js',
-        'frontend/cypress/**/*.cy.js',
-        'frontend/cypress/**/e2e/*.js',
-        'frontend/cypress/**/e2e/*.cy.js',
-        'frontend/cypress/support/*.js'
+        'frontend/cypress/**/*.cy.js'
       ],
       env: {
         'cypress/globals': true
       },
-      globals: {
-        cy: 'readonly',
-        Cypress: 'readonly'
-      },
-      plugins: ['cypress'],
       extends: ['plugin:cypress/recommended'],
       rules: {
-        'cypress/no-unnecessary-waiting': 'warn'
+        'cypress/no-unnecessary-waiting': 'warn',
+        'no-unused-vars': 'warn'
       }
     }
   ]

@@ -1,15 +1,38 @@
 #!/bin/bash
 
-# Check command line arguments
-DB_ONLY=false
-if [ "$1" = "--db-only" ]; then
-    DB_ONLY=true
-fi
+# Parse arguments for multiple flags
+RUN_DB=false
+RUN_BACKEND=false
+RUN_FRONTEND=false
 
-if [ "$DB_ONLY" = true ]; then
-    echo "🗄️  Starting Blood Sugar History Database Only..."
+if [ $# -eq 0 ]; then
+  RUN_DB=true
+  RUN_BACKEND=true
+  RUN_FRONTEND=true
+  echo "🚀 Starting Blood Sugar History: Database, Backend, and Frontend (Full Environment)"
 else
-    echo "🚀 Starting Blood Sugar History Development Environment..."
+  for arg in "$@"; do
+    case $arg in
+      --db)
+        RUN_DB=true
+        ;;
+      --backend)
+        RUN_BACKEND=true
+        ;;
+      --frontend)
+        RUN_FRONTEND=true
+        ;;
+      *)
+        echo "Unknown argument: $arg"
+        exit 1
+        ;;
+    esac
+  done
+  echo -n "🚀 Starting: "
+  $RUN_DB && echo -n "Database "
+  $RUN_BACKEND && echo -n "Backend "
+  $RUN_FRONTEND && echo -n "Frontend Build "
+  echo
 fi
 
 # Colors for output
@@ -78,29 +101,37 @@ if ! check_port 5432; then
     echo -e "${YELLOW}⚠️  Skipping database startup because port 5432 is in use.${NC}"
 fi
 
-# Only check other ports if not in DB_ONLY mode
-if [ "$DB_ONLY" = false ]; then
-    # Check port 3000
+# Check ports based on mode
+if [ "$RUN_DB" = false ] && [ "$RUN_BACKEND" = false ] && [ "$RUN_FRONTEND" = false ]; then
+    # Full start mode - check port 3000 (backend + frontend)
     if ! check_port 3000; then
-        SKIP_FRONTEND=1
-        echo -e "${YELLOW}⚠️  Skipping frontend startup because port 3000 is in use.${NC}"
-    fi
-
-    # Check port 8080
-    if ! check_port 8080; then
         SKIP_BACKEND=1
-        echo -e "${YELLOW}⚠️  Skipping backend startup because port 8080 is in use.${NC}"
+        SKIP_FRONTEND=1
+        echo -e "${YELLOW}⚠️  Skipping backend and frontend startup because port 3000 is in use.${NC}"
+    fi
+elif [ "$RUN_BACKEND" = true ]; then
+    # Backend only mode - check port 3000
+    if ! check_port 3000; then
+        SKIP_BACKEND=1
+        echo -e "${YELLOW}⚠️  Skipping backend startup because port 3000 is in use.${NC}"
     fi
 fi
 
 # Function to cleanup on exit
 cleanup() {
     echo -e "\n${YELLOW}🛑 Stopping services...${NC}"
-    if [ "$DB_ONLY" = false ]; then
+    if [ "$RUN_DB" = false ] && [ "$RUN_BACKEND" = false ] && [ "$RUN_FRONTEND" = false ]; then
+        # Full start mode cleanup
         if [ ! -z "$FRONTEND_PID" ]; then
             kill $FRONTEND_PID 2>/dev/null
             echo -e "${GREEN}✅ Frontend stopped${NC}"
         fi
+        if [ ! -z "$BACKEND_PID" ]; then
+            kill $BACKEND_PID 2>/dev/null
+            echo -e "${GREEN}✅ Backend stopped${NC}"
+        fi
+    elif [ "$RUN_BACKEND" = true ]; then
+        # Backend only mode cleanup
         if [ ! -z "$BACKEND_PID" ]; then
             kill $BACKEND_PID 2>/dev/null
             echo -e "${GREEN}✅ Backend stopped${NC}"
@@ -117,59 +148,59 @@ cleanup() {
 trap cleanup SIGINT SIGTERM
 
 # Start PostgreSQL
-if [ "$SKIP_DB" -eq 0 ]; then
-    echo -e "${BLUE}🗄️  Starting PostgreSQL...${NC}"
+if [ "$RUN_DB" = true ]; then
+    if [ "$SKIP_DB" -eq 0 ]; then
+        echo -e "${BLUE}🗄️  Starting PostgreSQL...${NC}"
 
-    # Check if PostgreSQL container already exists
-    if docker ps -a --format "table {{.Names}}" | grep -q "bloodsugar-postgres"; then
-        echo -e "${YELLOW}📦 PostgreSQL container exists, starting it...${NC}"
-        docker start bloodsugar-postgres
-        POSTGRES_CONTAINER="bloodsugar-postgres"
+        # Check if PostgreSQL container already exists
+        if docker ps -a --format "table {{.Names}}" | grep -q "bloodsugar-postgres"; then
+            echo -e "${YELLOW}📦 PostgreSQL container exists, starting it...${NC}"
+            docker start bloodsugar-postgres
+            POSTGRES_CONTAINER="bloodsugar-postgres"
+        else
+            echo -e "${YELLOW}📦 Creating PostgreSQL container...${NC}"
+            docker run -d \
+                --name bloodsugar-postgres \
+                -e POSTGRES_DB=bloodsugar \
+                -e POSTGRES_USER=postgres \
+                -e POSTGRES_PASSWORD=password \
+                -p 5432:5432 \
+                postgres:15
+            POSTGRES_CONTAINER="bloodsugar-postgres"
+        fi
+
+        # Wait for PostgreSQL to be ready
+        echo -e "${YELLOW}⏳ Waiting for PostgreSQL to be ready...${NC}"
+        until docker exec $POSTGRES_CONTAINER pg_isready -U postgres >/dev/null 2>&1; do
+            echo -n "."
+            sleep 1
+        done
+        echo -e "\n${GREEN}✅ PostgreSQL is ready${NC}"
     else
-        echo -e "${YELLOW}📦 Creating PostgreSQL container...${NC}"
-        docker run -d \
-            --name bloodsugar-postgres \
-            -e POSTGRES_DB=bloodsugar \
-            -e POSTGRES_USER=postgres \
-            -e POSTGRES_PASSWORD=password \
-            -p 5432:5432 \
-            postgres:15
-        POSTGRES_CONTAINER="bloodsugar-postgres"
+        echo -e "${YELLOW}⚠️  Database will not be started due to port conflict.${NC}"
     fi
-
-    # Wait for PostgreSQL to be ready
-    echo -e "${YELLOW}⏳ Waiting for PostgreSQL to be ready...${NC}"
-    until docker exec $POSTGRES_CONTAINER pg_isready -U postgres >/dev/null 2>&1; do
-        echo -n "."
-        sleep 1
-    done
-    echo -e "\n${GREEN}✅ PostgreSQL is ready${NC}"
-else
-    echo -e "${YELLOW}⚠️  Database will not be started due to port conflict.${NC}"
 fi
 
-# Only start backend and frontend if not in DB_ONLY mode
-if [ "$DB_ONLY" = false ]; then
-    # Start backend with hot reload
-    echo "Starting backend with hot reload..."
-    cd backend
-    DOTNET_ENVIRONMENT=Development dotnet watch run &
-    cd ..
-    BACKEND_PID=$!
-
-    # Wait a moment for backend to start
-    sleep 5
-
-    # Check if backend started successfully
-    if ! curl -s http://localhost:8080/health >/dev/null 2>&1; then
-        echo -e "${YELLOW}⏳ Backend is starting up...${NC}"
-        # Wait a bit more for backend to fully start
-        sleep 10
+# Start backend
+if [ "$RUN_BACKEND" = true ]; then
+    if [ "$SKIP_BACKEND" -eq 0 ]; then
+        echo -e "${BLUE}🔧 Starting backend with hot reload...${NC}"
+        cd backend
+        DOTNET_ENVIRONMENT=Development dotnet watch run &
+        cd ..
+        BACKEND_PID=$!
+        sleep 5
+        if ! curl -s http://localhost:3000/health >/dev/null 2>&1; then
+            echo -e "${YELLOW}⏳ Backend is starting up...${NC}"
+            sleep 10
+        fi
     fi
+fi
 
-    # Start frontend
+# Build frontend
+if [ "$RUN_FRONTEND" = true ]; then
     if [ "$SKIP_FRONTEND" -eq 0 ]; then
-        echo -e "${BLUE}🌐 Starting frontend...${NC}"
+        echo -e "${BLUE}🌐 Building frontend...${NC}"
         cd frontend
 
         # Check if frontend dependencies are installed
@@ -178,40 +209,47 @@ if [ "$DB_ONLY" = false ]; then
             npm install
         fi
 
-        # Start frontend in background
-        echo -e "${GREEN}🚀 Starting frontend on http://localhost:3000${NC}"
-        npm start &
-        FRONTEND_PID=$!
+        # Build frontend for production
+        echo -e "${GREEN}🔨 Building frontend for production...${NC}"
+        npm run build
+        
+        # Copy build to backend directory
+        echo -e "${GREEN}📁 Copying frontend build to backend...${NC}"
+        rm -rf ../backend/build
+        cp -r build ../backend/
+        
         cd ..
+        echo -e "${GREEN}✅ Frontend build completed and copied to backend${NC}"
     else
-        echo -e "${YELLOW}⚠️  Frontend will not be started due to port conflict.${NC}"
+        echo -e "${YELLOW}⚠️  Frontend will not be built due to port conflict.${NC}"
     fi
-
-    # Wait for services to be ready
-    echo -e "${BLUE}⏳ Waiting for services to be ready...${NC}"
-    sleep 10
-else
-    echo -e "${GREEN}✅ Database-only mode: Backend and frontend will not be started${NC}"
 fi
+
+# Wait for services to be ready
+echo -e "${BLUE}⏳ Waiting for services to be ready...${NC}"
+sleep 10
 
 # Check if services are running
 echo -e "${BLUE}🔍 Checking service status...${NC}"
 
 # Check PostgreSQL
-if [ "$SKIP_DB" -eq 0 ]; then
-    if docker exec $POSTGRES_CONTAINER pg_isready -U postgres >/dev/null 2>&1; then
-        echo -e "${GREEN}✅ PostgreSQL is running on localhost:5432${NC}"
-    else
-        echo -e "${RED}❌ PostgreSQL is not responding${NC}"
-        cleanup
+if [ "$RUN_DB" = true ]; then
+    if [ "$SKIP_DB" -eq 0 ]; then
+        if docker exec $POSTGRES_CONTAINER pg_isready -U postgres >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ PostgreSQL is running on localhost:5432${NC}"
+        else
+            echo -e "${RED}❌ PostgreSQL is not responding${NC}"
+            cleanup
+        fi
     fi
 fi
 
-# Only check backend and frontend if not in DB_ONLY mode
-if [ "$DB_ONLY" = false ]; then
+# Check service status based on mode
+if [ "$RUN_DB" = true ]; then
+    # Full start mode - check both backend and frontend
     if [ "$SKIP_BACKEND" -eq 0 ]; then
-        if curl -s http://localhost:8080/health >/dev/null 2>&1; then
-            echo -e "${GREEN}✅ Backend is running on http://localhost:8080${NC}"
+        if curl -s http://localhost:3000/health >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ Backend is running on http://localhost:3000${NC}"
         else
             echo -e "${RED}❌ Backend is not responding${NC}"
             cleanup
@@ -225,10 +263,10 @@ if [ "$DB_ONLY" = false ]; then
         fi
     fi
     echo ""
-    echo -e "${GREEN}🎉 Development environment is ready!${NC}"
+    echo -e "${GREEN}🎉 Full development environment is ready!${NC}"
     echo ""
-    echo -e "${BLUE}🌐 Frontend: ${GREEN}http://localhost:3000${NC}"
-    echo -e "${BLUE}🔧 Backend API: ${GREEN}http://localhost:8080${NC}"
+    echo -e "${BLUE}🌐 Application: ${GREEN}http://localhost:3000${NC}"
+    echo -e "${BLUE}🔧 Backend API: ${GREEN}http://localhost:3000/api${NC}"
     echo -e "${BLUE}🗄️  Database: ${GREEN}localhost:5432${NC}"
     echo -e "${BLUE}   Database Name: ${GREEN}bloodsugar${NC}"
     echo -e "${BLUE}   Username: ${GREEN}postgres${NC}"
@@ -240,7 +278,44 @@ if [ "$DB_ONLY" = false ]; then
     echo ""
     # Wait for user to stop
     wait
-else
+
+elif [ "$RUN_BACKEND" = true ]; then
+    # Backend only mode - check only backend
+    if [ "$SKIP_BACKEND" -eq 0 ]; then
+        if curl -s http://localhost:3000/health >/dev/null 2>&1; then
+            echo -e "${GREEN}✅ Backend is running on http://localhost:3000${NC}"
+        else
+            echo -e "${RED}❌ Backend is not responding${NC}"
+            cleanup
+        fi
+    fi
+    echo ""
+    echo -e "${GREEN}🎉 Backend is ready!${NC}"
+    echo ""
+    echo -e "${BLUE}🔧 Backend API: ${GREEN}http://localhost:3000/api${NC}"
+    echo -e "${BLUE}🗄️  Database: ${GREEN}localhost:5432${NC}"
+    echo -e "${BLUE}   Database Name: ${GREEN}bloodsugar${NC}"
+    echo -e "${BLUE}   Username: ${GREEN}postgres${NC}"
+    echo -e "${BLUE}   Password: ${GREEN}password${NC}"
+    echo ""
+    echo -e "${YELLOW}📝 Press Ctrl+C to stop backend${NC}"
+    echo ""
+    echo -e "${BLUE}📋 Service logs (Ctrl+C to stop):${NC}"
+    echo ""
+    # Wait for user to stop
+    wait
+
+elif [ "$RUN_FRONTEND" = true ]; then
+    # Frontend only mode - already completed
+    echo ""
+    echo -e "${GREEN}🎉 Frontend build completed!${NC}"
+    echo ""
+    echo -e "${BLUE}📁 Build files copied to: ${GREEN}backend/build/${NC}"
+    echo ""
+    exit 0
+
+elif [ "$RUN_DB" = true ]; then
+    # Database only mode
     echo ""
     echo -e "${GREEN}🎉 Database is ready!${NC}"
     echo ""

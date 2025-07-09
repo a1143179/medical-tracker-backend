@@ -4,7 +4,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
-import Login from './components/Login';
+import GoogleLogin from './components/GoogleLogin';
 import Dashboard from './components/Dashboard';
 import Header from './components/Header';
 
@@ -33,7 +33,7 @@ const AppWithProviders = ({ children }) => {
 
 // Main App Layout with Header
 const AppLayout = () => {
-  const { isAuthenticated } = useAuth();
+  const { user } = useAuth();
   const [mobilePage, setMobilePage] = useState('dashboard'); // 'dashboard', 'analytics', 'add'
 
   const handleMobileNavigate = (page) => {
@@ -48,7 +48,7 @@ const AppLayout = () => {
           path="/login" 
           element={
             <PublicRoute>
-              <Login />
+              <GoogleLogin />
             </PublicRoute>
           } 
         />
@@ -63,13 +63,13 @@ const AppLayout = () => {
         <Route 
           path="/" 
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+            user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
           } 
         />
         <Route 
           path="*" 
           element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
+            user ? <Navigate to="/dashboard" replace /> : <Navigate to="/login" replace />
           } 
         />
       </Routes>
@@ -79,7 +79,7 @@ const AppLayout = () => {
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { t } = useLanguage();
 
   if (loading) {
@@ -95,7 +95,7 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -104,7 +104,7 @@ const ProtectedRoute = ({ children }) => {
 
 // Public Route Component - redirects authenticated users to dashboard
 const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { user, loading } = useAuth();
   const { t } = useLanguage();
 
   if (loading) {
@@ -120,7 +120,7 @@ const PublicRoute = ({ children }) => {
     );
   }
 
-  if (isAuthenticated) {
+  if (user) {
     return <Navigate to="/dashboard" replace />;
   }
 

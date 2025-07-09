@@ -31,7 +31,7 @@ This guide covers best practices for implementing email functionality in both de
 #### 2. **Environment Configuration**
 ```bash
 # .env.development
-REACT_APP_API_URL=http://localhost:8080
+REACT_APP_API_URL=http://localhost:3000
 REACT_APP_EMAIL_SERVICE=mailtrap
 REACT_APP_EMAIL_FROM=noreply@bloodsugartracker.dev
 ```

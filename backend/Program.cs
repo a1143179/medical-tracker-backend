@@ -1,12 +1,34 @@
 using System.Collections;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography;
-using System.Text;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using Backend.Models;
+using Backend.DTOs;
+using Backend.Data;
+using Serilog;
+using Microsoft.AspNetCore.Http.Extensions;
+using System.IO;
+using Microsoft.AspNetCore.DataProtection;
+
+// Add file logging with Serilog
+Directory.CreateDirectory("logs");
+Directory.CreateDirectory("keys");
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .WriteTo.File("logs/log.txt", rollingInterval: RollingInterval.Day)
+    .CreateLogger();
+
+// Simple in-memory state storage for OAuth
+var oauthStateStorage = new Dictionary<string, (string State, string ReturnUrl, DateTime Expires)>();
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseSerilog();
 
 // 1. config services
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -18,16 +40,17 @@ builder.Services.AddSwaggerGen();
 // Add validation services
 builder.Services.AddControllers();
 
-// CORS
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("AllowReactApp", policy =>
-    {
-        policy.WithOrigins("http://localhost:3000") // 允许你的 React 开发服务器访问
-              .AllowAnyHeader()
-              .AllowAnyMethod();
-    });
-});
+// CORS - Not needed since frontend and backend are on same origin
+// builder.Services.AddCors(options =>
+// {
+//     options.AddPolicy("AllowReactApp", policy =>
+//     {
+//         policy.WithOrigins("http://localhost:3000")
+//               .AllowAnyHeader()
+//               .AllowAnyMethod()
+//               .AllowCredentials();
+//     });
+// });
 
 // Add session services
 builder.Services.AddDistributedMemoryCache();
@@ -35,10 +58,47 @@ builder.Services.AddSession(options =>
 {
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
-    options.IdleTimeout = TimeSpan.FromHours(24); // Session timeout
+    options.IdleTimeout = TimeSpan.FromHours(24);
+    // For local development (http):
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    // For production (https), use:
+    // options.Cookie.SameSite = SameSiteMode.None;
+    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    options.Cookie.Name = ".AspNetCore.Session";
+    options.Cookie.MaxAge = TimeSpan.FromHours(24);
+    options.Cookie.Domain = null;
+});
+
+// Add Google OAuth authentication
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+    options.DefaultSignInScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+})
+.AddCookie(options =>
+{
+    options.LoginPath = "/api/auth/login";
+    options.LogoutPath = "/api/auth/logout";
+    options.ExpireTimeSpan = TimeSpan.FromHours(24);
+    // For local development (http):
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    // For production (https), use:
+    // options.Cookie.SameSite = SameSiteMode.None;
+    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 });
 
 var app = builder.Build();
+
+// Configure static files to serve from frontend build directory
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "..", "frontend", "build")),
+    RequestPath = ""
+});
 
 // Log the current ASPNETCORE_ENVIRONMENT value
 var env = app.Environment.EnvironmentName;
@@ -49,10 +109,367 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-    app.UseCors("AllowReactApp");
+    // app.UseCors("AllowReactApp"); // Not needed since same origin
 }
 
 app.UseSession();
+
+// Add fallback to serve index.html for client-side routing
+app.MapFallbackToFile("index.html", new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "..", "frontend", "build"))
+});
+
+// 3. define API endpoints (before authentication middleware)
+var api = app.MapGroup("/api/records");
+var authApi = app.MapGroup("/api/auth");
+
+// Health check endpoint
+app.MapGet("/api/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+
+// Google OAuth login endpoint
+authApi.MapGet("/login", async (HttpContext context) =>
+{
+    var returnUrl = context.Request.Query["returnUrl"].ToString();
+    if (string.IsNullOrEmpty(returnUrl))
+    {
+        returnUrl = "/";
+    }
+    
+    // Build Google OAuth URL manually
+    var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? builder.Configuration["Google:ClientId"] ?? "";
+    var redirectUri = "http://localhost:3000/api/auth/callback";
+    var scope = "openid email profile";
+    var responseType = "code";
+    
+    // Create a state parameter that includes the return URL
+    var stateData = $"{Guid.NewGuid()}|{returnUrl}";
+    var state = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(stateData));
+    
+    var googleAuthUrl = $"https://accounts.google.com/o/oauth2/auth?client_id={Uri.EscapeDataString(clientId)}&redirect_uri={Uri.EscapeDataString(redirectUri)}&scope={Uri.EscapeDataString(scope)}&response_type={responseType}&state={Uri.EscapeDataString(state)}";
+    
+    return Results.Redirect(googleAuthUrl);
+});
+
+// Google OAuth callback endpoint
+authApi.MapGet("/callback", async (HttpContext context, AppDbContext db, ILogger<Program> logger, IConfiguration config) =>
+{
+    try
+    {
+        // Get parameters from Google callback
+        var code = context.Request.Query["code"].ToString();
+        var state = context.Request.Query["state"].ToString();
+        var error = context.Request.Query["error"].ToString();
+        
+        if (!string.IsNullOrEmpty(error))
+        {
+            logger.LogError($"[CALLBACK] Google OAuth error: {error}");
+            return Results.Redirect("/login?error=oauth_error");
+        }
+        
+        if (string.IsNullOrEmpty(code))
+        {
+            logger.LogError("[CALLBACK] No authorization code received");
+            return Results.Redirect("/login?error=no_code");
+        }
+        
+        // Decode state parameter to get return URL
+        string returnUrl = "/";
+        try
+        {
+            var decodedState = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(state));
+            var stateParts = decodedState.Split('|');
+            if (stateParts.Length == 2)
+            {
+                returnUrl = stateParts[1];
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "[CALLBACK] Failed to decode state parameter");
+            return Results.Redirect("/login?error=invalid_state");
+        }
+        
+        // Exchange authorization code for tokens
+        var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? config["Google:ClientId"] ?? "";
+        var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") ?? config["Google:ClientSecret"] ?? "";
+        var redirectUri = "http://localhost:3000/api/auth/callback";
+        
+        using var httpClient = new HttpClient();
+        var tokenRequest = new FormUrlEncodedContent(new[]
+        {
+            new KeyValuePair<string, string>("client_id", clientId),
+            new KeyValuePair<string, string>("client_secret", clientSecret),
+            new KeyValuePair<string, string>("code", code),
+            new KeyValuePair<string, string>("grant_type", "authorization_code"),
+            new KeyValuePair<string, string>("redirect_uri", redirectUri)
+        });
+        
+        var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
+        var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
+        
+        if (!tokenResponse.IsSuccessStatusCode)
+        {
+            logger.LogError($"[CALLBACK] Token exchange failed: {tokenContent}");
+            return Results.Redirect("/login?error=token_exchange_failed");
+        }
+        
+        // Parse token response (simplified - you might want to use a JSON library)
+        var accessToken = ExtractValue(tokenContent, "access_token");
+        var idToken = ExtractValue(tokenContent, "id_token");
+        
+        if (string.IsNullOrEmpty(accessToken))
+        {
+            logger.LogError("[CALLBACK] No access token received");
+            return Results.Redirect("/login?error=no_access_token");
+        }
+        
+        // Get user info from Google
+        httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+        var userInfoResponse = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+        var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
+        
+        if (!userInfoResponse.IsSuccessStatusCode)
+        {
+            logger.LogError($"[CALLBACK] User info request failed: {userInfoContent}");
+            return Results.Redirect("/login?error=user_info_failed");
+        }
+        
+        // Parse user info (simplified)
+        var email = ExtractValue(userInfoContent, "email");
+        var name = ExtractValue(userInfoContent, "name");
+        var googleId = ExtractValue(userInfoContent, "id");
+        
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(googleId))
+        {
+            logger.LogError("[CALLBACK] Google OAuth: Missing email or Google ID");
+            return Results.Redirect($"{returnUrl}?error=missing_user_info");
+        }
+        
+        // Find or create user in database
+        var existingUser = await db.Users.FirstOrDefaultAsync(u => u.GoogleId == googleId);
+        if (existingUser == null)
+        {
+            // Check if email already exists (in case user registered with email before)
+            existingUser = await db.Users.FirstOrDefaultAsync(u => u.Email == email);
+            if (existingUser != null)
+            {
+                // Update existing user with Google ID
+                existingUser.GoogleId = googleId;
+                existingUser.Name = name ?? email;
+            }
+            else
+            {
+                // Create new user
+                existingUser = new User
+                {
+                    Email = email,
+                    Name = name ?? email,
+                    GoogleId = googleId,
+                    CreatedAt = DateTime.UtcNow,
+                    LanguagePreference = "en"
+                };
+                db.Users.Add(existingUser);
+            }
+            await db.SaveChangesAsync();
+        }
+        
+        // Set session
+        context.Session.SetString("UserId", existingUser.Id.ToString());
+        context.Session.SetString("UserEmail", existingUser.Email);
+        context.Session.SetString("UserName", existingUser.Name);
+        
+        // Commit session changes
+        await context.Session.CommitAsync();
+        
+        // Redirect to dashboard using relative path
+        return Results.Redirect("/dashboard");
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "[CALLBACK] Google OAuth callback error");
+        return Results.Redirect("/login?error=callback_error");
+    }
+});
+
+// Helper method to extract values from JSON-like strings
+static string ExtractValue(string json, string key)
+{
+    var pattern = $"\"{key}\"\\s*:\\s*\"([^\"]*)\"";
+    var match = System.Text.RegularExpressions.Regex.Match(json, pattern);
+    return match.Success ? match.Groups[1].Value : "";
+}
+
+// Add route for /login to handle error redirects
+app.MapGet("/login", (HttpContext context) =>
+{
+    var error = context.Request.Query["error"].ToString();
+    if (!string.IsNullOrEmpty(error))
+    {
+        // Redirect to frontend with error parameter
+        return Results.Redirect($"/?error={Uri.EscapeDataString(error)}");
+    }
+    // If no error, just redirect to home page
+    return Results.Redirect("/");
+});
+
+// Logout endpoint
+authApi.MapPost("/logout", async (HttpContext context) =>
+{
+    await context.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    context.Session.Clear();
+    return Results.Ok(new { message = "Logged out successfully" });
+});
+
+// Get current user info
+authApi.MapGet("/me", async (HttpContext context, AppDbContext db) =>
+{
+    var userId = context.Session.GetString("UserId");
+    
+    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    var user = await db.Users.FindAsync(id);
+    if (user == null)
+    {
+        return Results.NotFound();
+    }
+
+    return Results.Ok(new UserDto
+    {
+        Id = user.Id,
+        Email = user.Email,
+        Name = user.Name,
+        CreatedAt = user.CreatedAt,
+        LanguagePreference = user.LanguagePreference
+    });
+});
+
+// Update language preference
+authApi.MapPost("/language", async (UpdateLanguagePreferenceDto dto, HttpContext context, AppDbContext db) =>
+{
+    var userId = context.Session.GetString("UserId");
+    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    var user = await db.Users.FindAsync(id);
+    if (user == null)
+    {
+        return Results.NotFound();
+    }
+
+    user.LanguagePreference = dto.LanguagePreference;
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Language preference updated" });
+});
+
+// Blood sugar records endpoints
+api.MapGet("/", async (HttpContext context, AppDbContext db) =>
+{
+    var userId = context.Session.GetString("UserId");
+    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    var records = await db.BloodSugarRecords
+        .Where(r => r.UserId == id)
+        .OrderByDescending(r => r.MeasurementTime)
+        .ToListAsync();
+
+    return Results.Ok(records);
+});
+
+api.MapPost("/", async (CreateBloodSugarRecordDto dto, HttpContext context, AppDbContext db) =>
+{
+    var userId = context.Session.GetString("UserId");
+    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var id))
+    {
+        return Results.Unauthorized();
+    }
+
+    // Validate model
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
+    var record = new BloodSugarRecord
+    {
+        MeasurementTime = dto.MeasurementTime,
+        Level = dto.Level,
+        Notes = dto.Notes,
+        UserId = id
+    };
+
+    db.BloodSugarRecords.Add(record);
+    await db.SaveChangesAsync();
+
+    return Results.Created($"/api/records/{record.Id}", record);
+});
+
+api.MapPut("/{id}", async (int id, CreateBloodSugarRecordDto dto, HttpContext context, AppDbContext db) =>
+{
+    var userId = context.Session.GetString("UserId");
+    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var userIdInt))
+    {
+        return Results.Unauthorized();
+    }
+
+    var record = await db.BloodSugarRecords.FirstOrDefaultAsync(r => r.Id == id && r.UserId == userIdInt);
+    if (record == null)
+    {
+        return Results.NotFound();
+    }
+
+    // Validate model
+    var validationResults = new List<ValidationResult>();
+    var validationContext = new ValidationContext(dto);
+    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
+        return Results.BadRequest(new { message = string.Join("; ", errors) });
+    }
+
+    record.MeasurementTime = dto.MeasurementTime;
+    record.Level = dto.Level;
+    record.Notes = dto.Notes;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(record);
+});
+
+api.MapDelete("/{id}", async (int id, HttpContext context, AppDbContext db) =>
+{
+    var userId = context.Session.GetString("UserId");
+    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out var userIdInt))
+    {
+        return Results.Unauthorized();
+    }
+
+    var record = await db.BloodSugarRecords.FirstOrDefaultAsync(r => r.Id == id && r.UserId == userIdInt);
+    if (record == null)
+    {
+        return Results.NotFound();
+    }
+
+    db.BloodSugarRecords.Remove(record);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Record deleted successfully" });
+});
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 // React files
 app.UseDefaultFiles(new DefaultFilesOptions
@@ -67,648 +484,5 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.Migrate();
 }
-
-// Password hashing utilities
-string HashPassword(string password)
-{
-    using var sha256 = SHA256.Create();
-    var hashedBytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(password));
-    return Convert.ToBase64String(hashedBytes);
-}
-
-bool VerifyPassword(string password, string hash)
-{
-    return HashPassword(password) == hash;
-}
-
-// Remember token utilities
-string GenerateRememberToken()
-{
-    var randomBytes = new byte[32];
-    using var rng = RandomNumberGenerator.Create();
-    rng.GetBytes(randomBytes);
-    return Convert.ToBase64String(randomBytes);
-}
-
-bool IsRememberTokenValid(string token, DateTime? expiry)
-{
-    return !string.IsNullOrEmpty(token) && 
-           expiry.HasValue && 
-           expiry.Value > DateTime.UtcNow;
-}
-
-// 3. define API endpoints
-var api = app.MapGroup("/api/records");
-var authApi = app.MapGroup("/api/auth");
-
-// Authentication endpoints
-authApi.MapPost("/login", async (LoginDto loginDto, HttpContext context, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(loginDto);
-    if (!Validator.TryValidateObject(loginDto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == loginDto.Email);
-    if (user == null || !VerifyPassword(loginDto.Password, user.PasswordHash))
-    {
-        return Results.BadRequest(new { message = "Invalid email or password" });
-    }
-
-    if (loginDto.RememberMe)
-    {
-        // Set remember_token cookie for persistent login
-        var rememberToken = GenerateRememberToken();
-        var tokenExpiry = DateTime.UtcNow.AddMonths(3);
-        user.RememberToken = rememberToken;
-        user.RememberTokenExpiry = tokenExpiry;
-        await db.SaveChangesAsync();
-
-        var cookieOptions = new CookieOptions
-        {
-            HttpOnly = true,
-            Expires = tokenExpiry,
-            Path = "/"
-        };
-        if (app.Environment.IsDevelopment())
-        {
-            cookieOptions.Secure = false;
-            cookieOptions.SameSite = SameSiteMode.Lax;
-        }
-        else
-        {
-            cookieOptions.Secure = true;
-            cookieOptions.SameSite = SameSiteMode.Strict;
-        }
-        context.Response.Cookies.Append("remember_token", rememberToken, cookieOptions);
-    }
-    else
-    {
-        // Use server session for non-remember-me login
-        context.Session.SetInt32("user_id", user.Id);
-        // Remove any previous remember_token
-        user.RememberToken = null;
-        user.RememberTokenExpiry = null;
-        await db.SaveChangesAsync();
-        context.Response.Cookies.Delete("remember_token");
-    }
-
-    var userDto = new UserDto
-    {
-        Id = user.Id,
-        Email = user.Email,
-        Name = user.Name,
-        CreatedAt = user.CreatedAt,
-        IsEmailVerified = user.IsEmailVerified,
-        LanguagePreference = user.LanguagePreference
-    };
-
-    return Results.Ok(userDto);
-});
-
-authApi.MapPost("/register", async (RegisterDto registerDto, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(registerDto);
-    if (!Validator.TryValidateObject(registerDto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    if (registerDto.Password != registerDto.ConfirmPassword)
-    {
-        return Results.BadRequest(new { message = "Passwords do not match" });
-    }
-
-    var existingUser = await db.Users.FirstOrDefaultAsync(u => u.Email == registerDto.Email);
-    
-    if (existingUser != null)
-    {
-        // Check if user is already fully registered (has password)
-        if (!string.IsNullOrEmpty(existingUser.PasswordHash))
-        {
-            return Results.BadRequest(new { message = "User with this email already exists" });
-        }
-        
-        // User exists but doesn't have password (created during verification code sending)
-        // Update with password and complete registration
-        existingUser.PasswordHash = HashPassword(registerDto.Password);
-        existingUser.VerificationCode = null;
-        existingUser.VerificationCodeExpiry = null;
-        
-        await db.SaveChangesAsync();
-        
-        var userDto = new UserDto
-        {
-            Id = existingUser.Id,
-            Email = existingUser.Email,
-            Name = existingUser.Name,
-            CreatedAt = existingUser.CreatedAt,
-            IsEmailVerified = existingUser.IsEmailVerified,
-            LanguagePreference = existingUser.LanguagePreference
-        };
-        
-        return Results.Created($"/api/auth/users/{existingUser.Id}", userDto);
-    }
-
-    // Create new user (this shouldn't happen in normal flow, but handle it)
-    var user = new User
-    {
-        Email = registerDto.Email,
-        PasswordHash = HashPassword(registerDto.Password),
-        Name = registerDto.Email.Split('@')[0],
-        CreatedAt = DateTime.UtcNow,
-        IsEmailVerified = false
-    };
-
-    db.Users.Add(user);
-    await db.SaveChangesAsync();
-
-    var newUserDto = new UserDto
-    {
-        Id = user.Id,
-        Email = user.Email,
-        Name = user.Name,
-        CreatedAt = user.CreatedAt,
-        IsEmailVerified = user.IsEmailVerified,
-        LanguagePreference = user.LanguagePreference
-    };
-
-    return Results.Created($"/api/auth/users/{user.Id}", newUserDto);
-});
-
-authApi.MapPost("/send-verification", async (SendVerificationDto dto, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(dto);
-    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    // Allow sending code to any email (registration or password reset)
-    var code = Random.Shared.Next(100000, 999999).ToString();
-    var expiryTime = DateTime.UtcNow.AddMinutes(10); // Code expires in 10 minutes
-
-    // Check if user exists
-    var existingUser = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-    
-    if (existingUser == null)
-    {
-        // Create new user record for registration
-        var newUser = new User
-        {
-            Email = dto.Email,
-            Name = dto.Email.Split('@')[0],
-            CreatedAt = DateTime.UtcNow,
-            IsEmailVerified = false,
-            VerificationCode = code,
-            VerificationCodeExpiry = expiryTime
-        };
-        
-        db.Users.Add(newUser);
-    }
-    else
-    {
-        // Update existing user's verification code (for password reset or re-verification)
-        existingUser.VerificationCode = code;
-        existingUser.VerificationCodeExpiry = expiryTime;
-    }
-    
-    await db.SaveChangesAsync();
-
-    if (app.Environment.IsDevelopment())
-    {
-        return Results.Ok(new { message = "Verification code sent", code = code });
-    }
-
-    // TODO: Send email in production
-    return Results.Ok(new { message = "Verification code sent" });
-});
-
-authApi.MapPost("/verify-code", async (VerifyCodeDto dto, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(dto);
-    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-    if (user == null)
-    {
-        return Results.BadRequest(new { message = "User not found" });
-    }
-
-    if (user.VerificationCode != dto.Code)
-    {
-        return Results.BadRequest(new { message = "Invalid verification code" });
-    }
-
-    if (user.VerificationCodeExpiry < DateTime.UtcNow)
-    {
-        return Results.BadRequest(new { message = "Verification code has expired" });
-    }
-
-    user.IsEmailVerified = true;
-    user.VerificationCode = null;
-    user.VerificationCodeExpiry = null;
-    
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new { message = "Email verified successfully" });
-});
-
-// Validate remember token and auto-login
-authApi.MapGet("/validate-remember-token", async (HttpContext context, AppDbContext db) =>
-{
-    var rememberToken = context.Request.Cookies["remember_token"];
-    User? user = null;
-    if (!string.IsNullOrEmpty(rememberToken))
-    {
-        user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-        if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
-        {
-            // Clear invalid cookie
-            context.Response.Cookies.Delete("remember_token");
-            return Results.Unauthorized();
-        }
-        // Renew token if it's still valid (extend by 3 months from now)
-        var newExpiry = DateTime.UtcNow.AddMonths(3);
-        user.RememberTokenExpiry = newExpiry;
-        await db.SaveChangesAsync();
-        // Update cookie expiry
-        context.Response.Cookies.Append("remember_token", rememberToken, new CookieOptions
-        {
-            HttpOnly = true,
-            Secure = !app.Environment.IsDevelopment(),
-            SameSite = SameSiteMode.Strict,
-            Expires = newExpiry,
-            Path = "/"
-        });
-    }
-    else
-    {
-        // Check for session-based login
-        var sessionUserId = context.Session.GetInt32("user_id");
-        if (sessionUserId.HasValue)
-        {
-            user = await db.Users.FindAsync(sessionUserId.Value);
-        }
-        if (user == null)
-        {
-            return Results.Unauthorized();
-        }
-    }
-    var userDto = new UserDto
-    {
-        Id = user.Id,
-        Email = user.Email,
-        Name = user.Name,
-        CreatedAt = user.CreatedAt,
-        IsEmailVerified = user.IsEmailVerified,
-        LanguagePreference = user.LanguagePreference
-    };
-    return Results.Ok(userDto);
-});
-
-// Logout - clear remember token
-authApi.MapPost("/logout", async (HttpContext context, AppDbContext db) =>
-{
-    var rememberToken = context.Request.Cookies["remember_token"];
-    if (!string.IsNullOrEmpty(rememberToken))
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-        if (user != null)
-        {
-            user.RememberToken = null;
-            user.RememberTokenExpiry = null;
-            await db.SaveChangesAsync();
-        }
-    }
-    // Clear the cookie
-    context.Response.Cookies.Delete("remember_token");
-    // Clear the session
-    context.Session.Clear();
-    return Results.Ok(new { message = "Logged out successfully" });
-});
-
-// Language preference endpoints
-authApi.MapGet("/language-preference", async (HttpContext context, AppDbContext db) =>
-{
-    var rememberToken = context.Request.Cookies["remember_token"];
-    User? user = null;
-    if (!string.IsNullOrEmpty(rememberToken))
-    {
-        user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-        if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
-        {
-            return Results.Unauthorized();
-        }
-    }
-    else
-    {
-        var sessionUserId = context.Session.GetInt32("user_id");
-        if (sessionUserId.HasValue)
-        {
-            user = await db.Users.FindAsync(sessionUserId.Value);
-        }
-        if (user == null)
-        {
-            return Results.Unauthorized();
-        }
-    }
-    return Results.Ok(new { languagePreference = user.LanguagePreference });
-});
-
-authApi.MapPut("/language-preference", async (UpdateLanguagePreferenceDto dto, HttpContext context, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(dto);
-    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    var rememberToken = context.Request.Cookies["remember_token"];
-    User? user = null;
-    if (!string.IsNullOrEmpty(rememberToken))
-    {
-        user = await db.Users.FirstOrDefaultAsync(u => u.RememberToken == rememberToken);
-        if (user == null || !IsRememberTokenValid(user.RememberToken ?? "", user.RememberTokenExpiry))
-        {
-            return Results.Unauthorized();
-        }
-    }
-    else
-    {
-        var sessionUserId = context.Session.GetInt32("user_id");
-        if (sessionUserId.HasValue)
-        {
-            user = await db.Users.FindAsync(sessionUserId.Value);
-        }
-        if (user == null)
-        {
-            return Results.Unauthorized();
-        }
-    }
-    user.LanguagePreference = dto.LanguagePreference;
-    await db.SaveChangesAsync();
-    return Results.Ok(new { message = "Language preference updated successfully" });
-});
-
-// Forgot password - send reset code
-authApi.MapPost("/forgot-password", async (ForgotPasswordDto dto, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(dto);
-    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-    if (user == null)
-    {
-        // Don't reveal if user exists or not for security
-        return Results.Ok(new { message = "If the email exists, a reset code has been sent" });
-    }
-
-    // Generate reset code
-    var resetCode = Random.Shared.Next(100000, 999999).ToString();
-    var expiryTime = DateTime.UtcNow.AddMinutes(15); // 15 minutes expiry
-
-    user.VerificationCode = resetCode;
-    user.VerificationCodeExpiry = expiryTime;
-    await db.SaveChangesAsync();
-
-    if (app.Environment.IsDevelopment())
-    {
-        return Results.Ok(new { message = "Reset code sent", code = resetCode });
-    }
-
-    // TODO: Send email in production
-    return Results.Ok(new { message = "If the email exists, a reset code has been sent" });
-});
-
-// Reset password with code
-authApi.MapPost("/reset-password", async (ResetPasswordDto dto, AppDbContext db) =>
-{
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(dto);
-    if (!Validator.TryValidateObject(dto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    if (dto.NewPassword != dto.ConfirmPassword)
-    {
-        return Results.BadRequest(new { message = "Passwords do not match" });
-    }
-
-    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-    if (user == null)
-    {
-        return Results.BadRequest(new { message = "Invalid email or reset code" });
-    }
-
-    if (user.VerificationCode != dto.Code)
-    {
-        return Results.BadRequest(new { message = "Invalid reset code" });
-    }
-
-    if (user.VerificationCodeExpiry < DateTime.UtcNow)
-    {
-        return Results.BadRequest(new { message = "Reset code has expired" });
-    }
-
-    // Update password
-    user.PasswordHash = HashPassword(dto.NewPassword);
-    user.VerificationCode = null;
-    user.VerificationCodeExpiry = null;
-    await db.SaveChangesAsync();
-
-    return Results.Ok(new { message = "Password reset successfully" });
-});
-
-// Blood sugar records endpoints (now with user filtering)
-api.MapGet("/", async (HttpContext context) =>
-{
-    var db = context.RequestServices.GetRequiredService<AppDbContext>();
-    var userId = context.Request.Query["userId"].ToString();
-    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int userIdInt))
-    {
-        return Results.BadRequest(new { message = "Invalid user ID" });
-    }
-    var records = await db.BloodSugarRecords
-        .Where(r => r.UserId == userIdInt)
-        .OrderByDescending(r => r.MeasurementTime)
-        .ToListAsync();
-    return Results.Ok(records);
-});
-
-api.MapGet("/{id}", async (int id, HttpContext context) =>
-{
-    var db = context.RequestServices.GetRequiredService<AppDbContext>();
-    var record = await db.BloodSugarRecords.FindAsync(id);
-    return record is not null ? Results.Ok(record) : Results.NotFound();
-});
-
-api.MapPost("/", async (CreateBloodSugarRecordDto recordDto, HttpContext context) =>
-{
-    var db = context.RequestServices.GetRequiredService<AppDbContext>();
-    var userId = context.Request.Query["userId"].ToString();
-    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int userIdInt))
-    {
-        return Results.BadRequest(new { message = "Invalid user ID" });
-    }
-
-    if (recordDto == null)
-    {
-        return Results.BadRequest(new { message = "Invalid request body" });
-    }
-
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(recordDto);
-    if (!Validator.TryValidateObject(recordDto, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    var newRecord = new BloodSugarRecord
-    {
-        MeasurementTime = recordDto.MeasurementTime,
-        Level = recordDto.Level,
-        Notes = recordDto.Notes,
-        UserId = userIdInt
-    };
-    db.BloodSugarRecords.Add(newRecord);
-    await db.SaveChangesAsync();
-    return Results.Created($"/api/records/{newRecord.Id}", newRecord);
-});
-
-api.MapPut("/{id}", async (int id, BloodSugarRecord inputRecord, HttpContext context) =>
-{
-    var db = context.RequestServices.GetRequiredService<AppDbContext>();
-    var userId = context.Request.Query["userId"].ToString();
-    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int userIdInt))
-    {
-        return Results.BadRequest(new { message = "Invalid user ID" });
-    }
-
-    if (inputRecord == null)
-    {
-        return Results.BadRequest(new { message = "Invalid request body" });
-    }
-
-    // Validate model using data annotations
-    var validationResults = new List<ValidationResult>();
-    var validationContext = new ValidationContext(inputRecord);
-    if (!Validator.TryValidateObject(inputRecord, validationContext, validationResults, true))
-    {
-        var errors = validationResults.Select(v => v.ErrorMessage).ToList();
-        return Results.BadRequest(new { message = string.Join("; ", errors) });
-    }
-
-    var record = await db.BloodSugarRecords.FindAsync(id);
-    if (record is null) return Results.NotFound();
-    
-    // Ensure user can only update their own records
-    if (record.UserId != userIdInt)
-    {
-        return Results.Forbid();
-    }
-    
-    record.MeasurementTime = inputRecord.MeasurementTime;
-    record.Level = inputRecord.Level;
-    record.Notes = inputRecord.Notes;
-
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
-
-api.MapDelete("/{id}", async (int id, HttpContext context) =>
-{
-    var db = context.RequestServices.GetRequiredService<AppDbContext>();
-    var userId = context.Request.Query["userId"].ToString();
-    if (string.IsNullOrEmpty(userId) || !int.TryParse(userId, out int userIdInt))
-    {
-        return Results.BadRequest(new { message = "Invalid user ID" });
-    }
-
-    var record = await db.BloodSugarRecords.FindAsync(id);
-    if (record is null) return Results.NotFound();
-    
-    // Ensure user can only delete their own records
-    if (record.UserId != userIdInt)
-    {
-        return Results.Forbid();
-    }
-    
-    db.BloodSugarRecords.Remove(record);
-    await db.SaveChangesAsync();
-    return Results.NoContent();
-});
-
-// Fallback route for client-side routing - serve React app for all unmatched routes
-app.MapFallback(async context =>
-{
-    var path = context.Request.Path.Value;
-    
-    // Skip API routes
-    if (path != null && path.StartsWith("/api"))
-    {
-        context.Response.StatusCode = 404;
-        return;
-    }
-    
-    // Serve index.html for all other routes
-    context.Response.ContentType = "text/html";
-    var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
-    if (File.Exists(indexPath))
-    {
-        var content = await File.ReadAllTextAsync(indexPath);
-        await context.Response.WriteAsync(content);
-    }
-    else
-    {
-        context.Response.StatusCode = 404;
-    }
-});
-
-// Add global error handler middleware
-app.Use(async (context, next) =>
-{
-    try
-    {
-        await next();
-    }
-    catch (Exception ex)
-    {
-        context.Response.StatusCode = 500;
-        context.Response.ContentType = "application/json";
-        var errorJson = System.Text.Json.JsonSerializer.Serialize(new { error = ex.Message });
-        await context.Response.WriteAsync(errorJson);
-    }
-});
 
 app.Run();

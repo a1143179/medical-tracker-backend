@@ -3,12 +3,22 @@ setlocal enabledelayedexpansion
 
 REM Check command line arguments
 set DB_ONLY=false
-if "%1"=="--db-only" set DB_ONLY=true
+set BACKEND_ONLY=false
+set FRONTEND_ONLY=false
+set FULL_START=false
 
-if "%DB_ONLY%"=="true" (
+if "%1"=="--db" (
+    set DB_ONLY=true
     echo 🗄️  Starting Blood Sugar History Database Only...
+) else if "%1"=="--backend" (
+    set BACKEND_ONLY=true
+    echo 🔧 Starting Blood Sugar History Backend Only...
+) else if "%1"=="--frontend" (
+    set FRONTEND_ONLY=true
+    echo 🌐 Building Blood Sugar History Frontend Only...
 ) else (
-    echo 🚀 Starting Blood Sugar History Development Environment...
+    set FULL_START=true
+    echo 🚀 Starting Blood Sugar History Full Development Environment...
 )
 
 REM Colors for output (Windows 10+ supports emoji)
@@ -70,20 +80,21 @@ if %errorlevel% neq 0 (
     echo %YELLOW% Skipping database startup because port 5432 is in use.
 )
 
-REM Only check other ports if not in DB_ONLY mode
-if "%DB_ONLY%"=="false" (
-    REM Check port 3000
+REM Check ports based on mode
+if "%FULL_START%"=="true" (
+    REM Full start mode - check port 3000 (backend + frontend)
     call :check_port 3000
     if %errorlevel% neq 0 (
+        set SKIP_BACKEND=1
         set SKIP_FRONTEND=1
-        echo %YELLOW% Skipping frontend startup because port 3000 is in use.
+        echo %YELLOW% Skipping backend and frontend startup because port 3000 is in use.
     )
-
-    REM Check port 8080
-    call :check_port 8080
+) else if "%BACKEND_ONLY%"=="true" (
+    REM Backend only mode - check port 3000
+    call :check_port 3000
     if %errorlevel% neq 0 (
         set SKIP_BACKEND=1
-        echo %YELLOW% Skipping backend startup because port 8080 is in use.
+        echo %YELLOW% Skipping backend startup because port 3000 is in use.
     )
 )
 
@@ -114,33 +125,73 @@ if %SKIP_DB%==0 (
     echo %YELLOW% Database will not be started due to port conflict.
 )
 
-REM Only start backend and frontend if not in DB_ONLY mode
-if "%DB_ONLY%"=="false" (
-    REM Start backend with hot reload
-    echo Starting backend with hot reload...
-    cd backend
-    set DOTNET_ENVIRONMENT=Development
-    start "backend" dotnet watch run
-    cd ..
+REM Start services based on mode
+if "%FULL_START%"=="true" (
+    REM Full start mode - start backend and build frontend
+    if %SKIP_BACKEND%==0 (
+        echo %BLUE% Starting backend with hot reload...
+        cd backend
+        set DOTNET_ENVIRONMENT=Development
+        start "backend" dotnet watch run
+        cd ..
+    )
 
-    REM Start frontend
+    REM Build frontend for production
     if %SKIP_FRONTEND%==0 (
-        echo %BLUE% Starting frontend...
+        echo %BLUE% Building frontend...
         cd frontend
         if not exist "node_modules" (
             echo %YELLOW% Installing frontend dependencies...
             npm install
         )
-        echo %GREEN% Starting frontend on http://localhost:3000
-        start /b npm start
-        set FRONTEND_PID=%errorlevel%
+        echo %GREEN% Building frontend for production...
+        npm run build
+        
+        echo %GREEN% Copying frontend build to backend...
+        if exist "..\backend\build" rmdir /s /q "..\backend\build"
+        xcopy /e /i build "..\backend\build"
+        
         cd ..
     ) else (
-        echo %YELLOW% Frontend will not be started due to port conflict.
+        echo %YELLOW% Frontend will not be built due to port conflict.
     )
     echo %BLUE% Waiting for services to be ready...
     timeout /t 10 /nobreak >nul
-) else (
+
+) else if "%BACKEND_ONLY%"=="true" (
+    REM Backend only mode
+    if %SKIP_BACKEND%==0 (
+        echo %BLUE% Starting backend with hot reload...
+        cd backend
+        set DOTNET_ENVIRONMENT=Development
+        start "backend" dotnet watch run
+        cd ..
+    )
+
+) else if "%FRONTEND_ONLY%"=="true" (
+    REM Frontend only mode - just build and copy
+    echo %BLUE% Building frontend...
+    cd frontend
+    if not exist "node_modules" (
+        echo %YELLOW% Installing frontend dependencies...
+        npm install
+    )
+    echo %GREEN% Building frontend for production...
+    npm run build
+    
+    echo %GREEN% Copying frontend build to backend...
+    if exist "..\backend\build" rmdir /s /q "..\backend\build"
+    xcopy /e /i build "..\backend\build"
+    
+    cd ..
+    echo %GREEN% ✅ Frontend build completed and copied to backend
+    echo.
+    echo %BLUE% 📁 Build files copied to: %GREEN%backend\build\
+    echo.
+    pause
+    exit /b 0
+
+) else if "%DB_ONLY%"=="true" (
     echo %GREEN% Database-only mode: Backend and frontend will not be started
 )
 
@@ -155,11 +206,13 @@ if %SKIP_DB%==0 (
         goto cleanup
     )
 )
-if "%DB_ONLY%"=="false" (
+REM Check service status based on mode
+if "%FULL_START%"=="true" (
+    REM Full start mode - check both backend and frontend
     if %SKIP_BACKEND%==0 (
-        curl -s http://localhost:8080/health >nul 2>&1
+        curl -s http://localhost:3000/health >nul 2>&1
         if %errorlevel% equ 0 (
-            echo %GREEN% Backend is running on http://localhost:8080
+            echo %GREEN% Backend is running on http://localhost:3000
         ) else (
             echo %RED% Backend is not responding
             goto cleanup
@@ -174,10 +227,10 @@ if "%DB_ONLY%"=="false" (
         )
     )
     echo.
-    echo %GREEN% 🎉 Development environment is ready!
+    echo %GREEN% 🎉 Full development environment is ready!
     echo.
-    echo %BLUE% 🌐 Frontend: %GREEN%http://localhost:3000
-    echo %BLUE% 🔧 Backend API: %GREEN%http://localhost:8080
+    echo %BLUE% 🌐 Application: %GREEN%http://localhost:3000
+    echo %BLUE% 🔧 Backend API: %GREEN%http://localhost:3000/api
     echo %BLUE% 🗄️  Database: %GREEN%localhost:5432
     echo %BLUE%    Database Name: %GREEN%bloodsugar
     echo %BLUE%    Username: %GREEN%postgres
@@ -186,7 +239,43 @@ if "%DB_ONLY%"=="false" (
     echo %YELLOW% 📝 Press Ctrl+C to stop all services
     echo.
     pause
-) else (
+
+) else if "%BACKEND_ONLY%"=="true" (
+    REM Backend only mode - check only backend
+    if %SKIP_BACKEND%==0 (
+        curl -s http://localhost:3000/health >nul 2>&1
+        if %errorlevel% equ 0 (
+            echo %GREEN% Backend is running on http://localhost:3000
+        ) else (
+            echo %RED% Backend is not responding
+            goto cleanup
+        )
+    )
+    echo.
+    echo %GREEN% 🎉 Backend is ready!
+    echo.
+    echo %BLUE% 🔧 Backend API: %GREEN%http://localhost:3000/api
+    echo %BLUE% 🗄️  Database: %GREEN%localhost:5432
+    echo %BLUE%    Database Name: %GREEN%bloodsugar
+    echo %BLUE%    Username: %GREEN%postgres
+    echo %BLUE%    Password: %GREEN%password
+    echo.
+    echo %YELLOW% 📝 Press Ctrl+C to stop backend
+    echo.
+    pause
+
+) else if "%FRONTEND_ONLY%"=="true" (
+    REM Frontend only mode - already completed
+    echo.
+    echo %GREEN% 🎉 Frontend build completed!
+    echo.
+    echo %BLUE% 📁 Build files copied to: %GREEN%backend\build\
+    echo.
+    pause
+    exit /b 0
+
+) else if "%DB_ONLY%"=="true" (
+    REM Database only mode
     echo.
     echo %GREEN% 🎉 Database is ready!
     echo.
@@ -203,11 +292,18 @@ if "%DB_ONLY%"=="false" (
 :cleanup
 echo.
 echo %YELLOW% 🛑 Stopping services...
-if "%DB_ONLY%"=="false" (
+if "%FULL_START%"=="true" (
+    REM Full start mode cleanup
     if defined FRONTEND_PID (
         taskkill /PID %FRONTEND_PID% /F >nul 2>&1
         echo %GREEN% Frontend stopped
     )
+    if defined BACKEND_PID (
+        taskkill /PID %BACKEND_PID% /F >nul 2>&1
+        echo %GREEN% Backend stopped
+    )
+) else if "%BACKEND_ONLY%"=="true" (
+    REM Backend only mode cleanup
     if defined BACKEND_PID (
         taskkill /PID %BACKEND_PID% /F >nul 2>&1
         echo %GREEN% Backend stopped

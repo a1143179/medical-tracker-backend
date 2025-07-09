@@ -1,10 +1,25 @@
-/* global cy, Cypress */
+/* global Cypress, cy */
 /* eslint-env cypress */
 describe('Mobile Analytics Navigation', () => {
   beforeEach(() => {
     // Set viewport to mobile size
     cy.viewport(375, 667);
-    cy.loginAndEnsureEnglish('weiwangfly@hotmail.com', 'AsDfJkL123');
+    
+    // Mock authenticated user
+    cy.intercept('GET', '/api/auth/me', {
+      statusCode: 200,
+      body: {
+        id: 1,
+        email: 'testuser@example.com',
+        name: 'Test User',
+        createdAt: '2024-01-01T00:00:00Z',
+        isEmailVerified: true,
+        languagePreference: 'en'
+      }
+    }).as('getUserInfo');
+
+    cy.visit('/dashboard');
+    cy.ensureEnglishLanguage();
   });
 
   it('should navigate to analytics page from mobile menu', () => {

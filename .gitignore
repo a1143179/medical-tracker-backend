@@ -4,3 +4,8 @@ node_modules/
 # Ignore backend build artifacts
 backend/obj/
 backend/bin/ 
+backend/logs/
+
+# Ignore development settings with secrets
+backend/appsettings.Development.json
+

@@ -7,7 +7,6 @@ This project includes comprehensive end-to-end testing using Cypress for the Blo
 - Node.js 18 or higher
 - npm or yarn package manager
 - The application should be running on `http://localhost:3000`
-- The backend API should be running on `http://localhost:8080`
 
 ## Installation
 
@@ -167,7 +166,7 @@ To make tests more reliable, add `data-testid` attributes to your React componen
 ### Environment Variables
 The Cypress configuration includes:
 - Base URL: `http://localhost:3000`
-- API URL: `http://localhost:8080`
+- API URL: `http://localhost:3000`
 - Viewport: 1280x720
 - Timeouts: 10 seconds
 
@@ -184,7 +183,7 @@ You can modify `cypress.config.js` to:
 
 1. **Tests fail because app isn't running**
    - Ensure the React app is running on `http://localhost:3000`
-   - Ensure the backend API is running on `http://localhost:8080`
+   - Ensure the backend API is running on `http://localhost:3000`
 
 2. **Element not found errors**
    - Check that `data-testid` attributes are present

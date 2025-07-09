@@ -23,7 +23,7 @@
     "cypress": "^13.6.0",
     "start-server-and-test": "^2.0.3"
   },
-  "proxy": "http://localhost:8080",
+
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
@@ -31,8 +31,8 @@
     "eject": "react-scripts eject",
     "cypress:open": "cypress open",
     "cypress:run": "cypress run",
-    "test:e2e": "start-server-and-test start http://localhost:3000 cypress:run",
-    "test:e2e:open": "start-server-and-test start http://localhost:3000 cypress:open"
+    "test:e2e": "start-server-and-test start http://localhost:3001 cypress:run",
+    "test:e2e:open": "start-server-and-test start http://localhost:3001 cypress:open"
   },
   "eslintConfig": {
     "extends": [

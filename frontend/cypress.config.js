@@ -14,7 +14,7 @@ module.exports = defineConfig({
     requestTimeout: 10000,
     responseTimeout: 10000,
     env: {
-      apiUrl: 'http://localhost:8080'
+      apiUrl: 'http://localhost:3000'
     },
     supportFile: 'cypress/support/e2e.js'
   },

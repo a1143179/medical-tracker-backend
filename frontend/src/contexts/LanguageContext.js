@@ -147,6 +147,9 @@ export const LanguageProvider = ({ children }) => {
       // Analytics
       bloodSugarTrends: 'Blood Sugar Trends',
       recentReadings: 'Recent Readings',
+      hour24Average: 'Daily Pattern (Hourly Averages)',
+      average: 'Average',
+      day: 'Day',
       noDataForAnalytics: 'No data available for analytics',
       addRecordsForCharts: 'Add some blood sugar records to see charts and analytics',
       
@@ -288,6 +291,9 @@ export const LanguageProvider = ({ children }) => {
       // Analytics
       bloodSugarTrends: '血糖趋势',
       recentReadings: '最近读数',
+      hour24Average: '每日模式 (小时平均值)',
+      average: '平均值',
+      day: '天',
       noDataForAnalytics: '暂无分析数据',
       addRecordsForCharts: '添加一些血糖记录以查看图表和分析',
       

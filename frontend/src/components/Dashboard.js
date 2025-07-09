@@ -310,6 +310,56 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     level: record.level
   }));
 
+  // Calculate 24-hour average blood sugar pattern (across all records)
+  const calculate24HourData = () => {
+    if (records.length === 0) return [];
+    
+    // Group all records by hour of day (0-23)
+    const hourlyGroups = {};
+    for (let hour = 0; hour < 24; hour++) {
+      hourlyGroups[hour] = [];
+    }
+    
+    // Categorize all records by hour
+    records.forEach(record => {
+      const recordDate = new Date(record.measurementTime);
+      const hour = recordDate.getHours();
+      hourlyGroups[hour].push(record.level);
+    });
+    
+    // Calculate average for each hour
+    const hourlyAverages = [];
+    for (let hour = 0; hour < 24; hour++) {
+      const readings = hourlyGroups[hour];
+      if (readings.length > 0) {
+        const average = readings.reduce((sum, level) => sum + level, 0) / readings.length;
+        hourlyAverages.push({
+          hour: hour,
+          level: parseFloat(average.toFixed(1)),
+          count: readings.length
+        });
+      } else {
+        // No readings for this hour
+        hourlyAverages.push({
+          hour: hour,
+          level: null,
+          count: 0
+        });
+      }
+    }
+    
+    // Add hour 24 (same as hour 0 for display purposes)
+    hourlyAverages.push({
+      hour: 24,
+      level: hourlyAverages[0]?.level || null,
+      count: hourlyAverages[0]?.count || 0
+    });
+    
+    return hourlyAverages;
+  };
+
+  const chart24HourData = calculate24HourData();
+
   const averageLevel = records.length > 0 
     ? (records.reduce((sum, record) => sum + record.level, 0) / records.length).toFixed(1)
     : 0;
@@ -416,6 +466,46 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 <RechartsTooltip />
                 <Bar dataKey="level" fill="#1976d2" />
               </BarChart>
+            </ResponsiveContainer>
+          </Paper>
+          <Paper elevation={3} sx={{ p: 1.5 }}>
+            <Typography variant="body1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+              <ShowChartIcon color="primary" />
+              {t('hour24Average')}
+            </Typography>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={chart24HourData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="hour" 
+                  type="number"
+                  domain={[0, 24]}
+                  ticks={[0, 6, 12, 18, 24]}
+                  tickFormatter={(value) => `${value}:00`}
+                />
+                <YAxis domain={[0, 'dataMax + 2']} />
+                <RechartsTooltip 
+                  formatter={(value, name, props) => {
+                    if (name === 'level') {
+                      const dataPoint = props.payload;
+                      return [
+                        value ? `${value} mmol/L` : t('noData'), 
+                        t('average')
+                      ];
+                    }
+                    return [value, name];
+                  }}
+                  labelFormatter={(label) => `${label}:00`}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="level" 
+                  stroke="#ff6b35" 
+                  strokeWidth={3}
+                  dot={{ fill: '#ff6b35', strokeWidth: 2, r: 4 }}
+                  connectNulls={true}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </Paper>
         </Box>
@@ -723,6 +813,44 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                               <RechartsTooltip />
                               <Bar dataKey="level" fill="#1976d2" />
                             </BarChart>
+                          </Paper>
+                          <Paper elevation={3} sx={{ p: 2 }}>
+                            <Typography variant="body1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <ShowChartIcon color="primary" />
+                              {t('hour24Average')}
+                            </Typography>
+                            <LineChart width={800} height={300} data={chart24HourData}>
+                              <CartesianGrid strokeDasharray="3 3" />
+                              <XAxis 
+                                dataKey="hour" 
+                                type="number"
+                                domain={[0, 24]}
+                                ticks={[0, 6, 12, 18, 24]}
+                                tickFormatter={(value) => `${value}:00`}
+                              />
+                              <YAxis domain={[0, 'dataMax + 2']} />
+                              <RechartsTooltip 
+                                formatter={(value, name, props) => {
+                                  if (name === 'level') {
+                                    const dataPoint = props.payload;
+                                    return [
+                                      value ? `${value} mmol/L` : t('noData'), 
+                                      t('average')
+                                    ];
+                                  }
+                                  return [value, name];
+                                }}
+                                labelFormatter={(label) => `${label}:00`}
+                              />
+                              <Line 
+                                type="monotone" 
+                                dataKey="level" 
+                                stroke="#ff6b35" 
+                                strokeWidth={3}
+                                dot={{ fill: '#ff6b35', strokeWidth: 2, r: 4 }}
+                                connectNulls={true}
+                              />
+                            </LineChart>
                           </Paper>
                         </Box>
                       ) : (

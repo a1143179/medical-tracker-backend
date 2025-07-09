@@ -1,4 +1,6 @@
+// eslint-disable-next-line spaced-comment
 // ***********************************************
+// eslint-disable-next-line spaced-comment
 // This example commands.js shows you how to
 // create various custom commands and overwrite
 // existing commands.
@@ -24,6 +26,7 @@
 // -- This will overwrite an existing command --
 // Cypress.Commands.overwrite('visit', (originalFn, url, options) => { ... }) 
 
+/* global Cypress, cy */
 // Custom command to ensure language is set to English
 Cypress.Commands.add('ensureEnglishLanguage', () => {
   // Check if we're on a page with the language selector (dashboard or authenticated pages)
