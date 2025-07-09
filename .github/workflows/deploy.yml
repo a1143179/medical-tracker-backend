@@ -50,7 +50,7 @@ jobs:
     - name: Start backend server
       working-directory: ./backend
       run: |
-        dotnet run --no-build --urls "http://localhost:8080" &
+        dotnet run --no-build --configuration Release --urls "http://localhost:8080" &
         sleep 15  # Wait for server to start
       env:
         ASPNETCORE_ENVIRONMENT: Development
