@@ -120,6 +120,9 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
     KnownProxies = { }   // Clear the default to trust Azure proxy
 });
 
+// Add Serilog request logging for full integration with ASP.NET Core
+app.UseSerilogRequestLogging();
+
 // Configure static files to serve from frontend build directory
 app.UseStaticFiles(); // Serve from wwwroot by default
 
