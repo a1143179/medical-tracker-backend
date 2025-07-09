@@ -225,7 +225,7 @@ export const LanguageProvider = ({ children }) => {
       enterEmail: 'Enter Email',
       verifyEmail: 'Verify Email',
       setPassword: 'Set Password',
-      appDescription: 'Professional Diabetes Management',
+      appDescription: 'Track your blood sugar levels and monitor your health with our comprehensive dashboard.',
       appInitials: 'BS',
       
       // Email Usage Monitor
