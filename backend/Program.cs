@@ -492,4 +492,9 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.Migrate();
 }
 
+// Ensure the app listens on the correct port for Azure
+var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
+app.Urls.Clear();
+app.Urls.Add($"http://0.0.0.0:{port}");
+
 app.Run();
