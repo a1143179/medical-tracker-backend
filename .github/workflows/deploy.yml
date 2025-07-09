@@ -64,6 +64,7 @@ jobs:
     - name: Run database migrations
       run: |
         cd backend
+        dotnet tool restore
         dotnet ef database update --no-build --project backend.csproj
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
