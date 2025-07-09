@@ -159,8 +159,8 @@ authApi.MapGet("/login", (HttpContext context) =>
     // Build Google OAuth URL manually
     var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? builder.Configuration["Google:ClientId"] ?? "";
     
-    // Dynamically determine redirect URI based on current request
-    var scheme = context.Request.Scheme;
+    // Force scheme based on environment
+    var scheme = app.Environment.IsProduction() ? "https" : "http";
     var host = context.Request.Host.Value;
     var redirectUri = $"{scheme}://{host}/api/auth/callback";
     
@@ -219,8 +219,8 @@ authApi.MapGet("/callback", async (HttpContext context, AppDbContext db, ILogger
         var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? config["Google:ClientId"] ?? "";
         var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") ?? config["Google:ClientSecret"] ?? "";
         
-        // Dynamically determine redirect URI based on current request
-        var scheme = context.Request.Scheme;
+        // In the /callback endpoint, also force the scheme for redirectUri
+        var scheme = app.Environment.IsProduction() ? "https" : "http";
         var host = context.Request.Host.Value;
         var redirectUri = $"{scheme}://{host}/api/auth/callback";
         
