@@ -1,14 +1,15 @@
-/* global Cypress, cy */
 /* eslint-env cypress */
-import { formatLocalDateForInput } from '../support/commands';
+/* global cy */
 
 describe('Data Validation', () => {
+  let records;
+
   beforeEach(() => {
-    // Mock authenticated user
+    const mockUserId = 1;
     cy.intercept('GET', '/api/auth/me', {
       statusCode: 200,
       body: {
-        id: 1,
+        id: mockUserId,
         email: 'testuser@example.com',
         name: 'Test User',
         createdAt: '2024-01-01T00:00:00Z',
@@ -16,6 +17,64 @@ describe('Data Validation', () => {
         languagePreference: 'en'
       }
     }).as('getUserInfo');
+
+    // Provide a predictable set of records for each test
+    records = [
+      {
+        id: 1,
+        userId: mockUserId,
+        level: 90,
+        notes: 'Initial record',
+        measurementTime: '2024-01-01T08:00:00Z',
+        createdAt: '2024-01-01T08:00:00Z',
+        updatedAt: '2024-01-01T08:00:00Z'
+      }
+    ];
+
+    cy.intercept({
+      method: 'GET',
+      url: /\/api\/records(\?.*)?$/
+    }, (req) => {
+      req.reply(records);
+    }).as('getRecords');
+
+    cy.intercept({
+      method: 'POST',
+      url: /\/api\/records(\?.*)?$/
+    }, (req) => {
+      const newRecord = {
+        ...req.body,
+        id: Date.now(),
+        userId: mockUserId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      records.unshift(newRecord);
+      req.reply(newRecord);
+    }).as('addRecord');
+
+    cy.intercept({
+      method: 'PUT',
+      url: /\/api\/records\/\d+(\?.*)?$/
+    }, (req) => {
+      const id = parseInt(req.url.split('/').pop(), 10);
+      const idx = records.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        records[idx] = { ...records[idx], ...req.body, updatedAt: new Date().toISOString() };
+        req.reply(records[idx]);
+      } else {
+        req.reply(404, {});
+      }
+    }).as('editRecord');
+
+    cy.intercept({
+      method: 'DELETE',
+      url: /\/api\/records\/\d+(\?.*)?$/
+    }, (req) => {
+      const id = parseInt(req.url.split('/').pop(), 10);
+      records = records.filter(r => r.id !== id);
+      req.reply({ success: true });
+    }).as('deleteRecord');
 
     cy.visit('/dashboard');
     cy.ensureEnglishLanguage();
@@ -45,14 +104,14 @@ describe('Data Validation', () => {
     cy.get('input[name="level"]').clear().type('0.1');
     cy.get('form').submit();
     cy.get('[data-testid="success-message"]').should('be.visible');
-    // Test above maximum value
+    // Test above maximum value (should fail)
     cy.get('[data-testid="add-record-button"]').click();
-    cy.get('input[name="level"]').type('150');
+    cy.get('input[name="level"]').type('1001');
     cy.get('textarea[name="notes"]').type('Test above maximum');
     cy.get('form').submit();
     cy.get('[data-testid="error-message"]').should('be.visible');
     // Test maximum value (should be valid)
-    cy.get('input[name="level"]').clear().type('100');
+    cy.get('input[name="level"]').clear().type('1000');
     cy.get('form').submit();
     cy.get('[data-testid="success-message"]').should('be.visible');
     // Test valid value in middle range

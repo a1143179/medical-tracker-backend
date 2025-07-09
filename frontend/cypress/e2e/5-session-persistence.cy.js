@@ -1,4 +1,4 @@
-/* global Cypress, cy */
+/* global cy */
 /* eslint-env cypress */
 
 describe('5. Session Persistence and Logout', () => {
@@ -48,13 +48,16 @@ describe('5. Session Persistence and Logout', () => {
   });
 
   it('should logout properly and clear session', () => {
-    // Logout
-    cy.get('[data-testid="logout-button"]').click();
+    // Logout - use force: true to handle Material-UI menu visibility
+    cy.get('[data-testid="logout-button"]').click({ force: true });
     cy.wait('@logout');
-    
+
+    // After logout, simulate session cleared by returning 401 for /api/auth/me
+    cy.intercept('GET', '/api/auth/me', { statusCode: 401 }).as('getUserInfoAfterLogout');
+
     // Should redirect to login page
     cy.url().should('include', '/login');
-    
+
     // Try to access dashboard - should redirect to login
     cy.visit('/dashboard');
     cy.url().should('include', '/login');

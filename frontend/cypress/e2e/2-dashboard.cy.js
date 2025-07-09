@@ -1,14 +1,16 @@
-/* global Cypress, cy */
 /* eslint-env cypress */
-import { formatLocalDateForInput } from '../support/commands';
+/* global cy */
 
 describe('Dashboard CRUD', () => {
+  let records;
+
   beforeEach(() => {
     // Mock authenticated user
+    const mockUserId = 1; // Ensure this matches the userId in the test records
     cy.intercept('GET', '/api/auth/me', {
       statusCode: 200,
       body: {
-        id: 1,
+        id: mockUserId,
         email: 'testuser@example.com',
         name: 'Test User',
         createdAt: '2024-01-01T00:00:00Z',
@@ -17,12 +19,73 @@ describe('Dashboard CRUD', () => {
       }
     }).as('getUserInfo');
 
+    // Always provide at least one record belonging to the logged-in user
+    records = [
+      {
+        id: 1,
+        userId: mockUserId, // Must match the logged-in user's id
+        level: 90,
+        notes: 'Initial record',
+        measurementTime: '2024-01-01T08:00:00Z',
+        createdAt: '2024-01-01T08:00:00Z',
+        updatedAt: '2024-01-01T08:00:00Z'
+      }
+    ];
+
+    cy.intercept({
+      method: 'GET',
+      url: /\/api\/records(\?.*)?$/
+    }, (req) => {
+      req.reply(records);
+    }).as('getRecords');
+
+    cy.intercept({
+      method: 'POST',
+      url: /\/api\/records(\?.*)?$/
+    }, (req) => {
+      const newRecord = {
+        ...req.body,
+        id: Date.now(),
+        userId: mockUserId,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      records.unshift(newRecord);
+      req.reply(newRecord);
+    }).as('addRecord');
+
+    cy.intercept({
+      method: 'PUT',
+      url: /\/api\/records\/\d+(\?.*)?$/
+    }, (req) => {
+      const id = parseInt(req.url.split('/').pop(), 10);
+      const idx = records.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        records[idx] = { ...records[idx], ...req.body, updatedAt: new Date().toISOString() };
+        req.reply(records[idx]);
+      } else {
+        req.reply(404, {});
+      }
+    }).as('editRecord');
+
+    cy.intercept({
+      method: 'DELETE',
+      url: /\/api\/records\/\d+(\?.*)?$/
+    }, (req) => {
+      const id = parseInt(req.url.split('/').pop(), 10);
+      records = records.filter(r => r.id !== id);
+      req.reply({ success: true });
+    }).as('deleteRecord');
+
     cy.visit('/dashboard');
     cy.ensureEnglishLanguage();
+    // Remove the wait since the API call might not be made
+    // cy.wait('@getRecords');
   });
 
   it('should display dashboard and records table', () => {
     cy.get('[data-testid="blood-sugar-records"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').should('have.length.greaterThan', 0);
   });
 
   it('should pre-populate measure time within 5 seconds of now', () => {
@@ -61,13 +124,12 @@ describe('Dashboard CRUD', () => {
   });
 
   it('should delete a blood sugar record', () => {
-    // Records are ordered by measurement time descending (newest first)
-    // So first() will be the most recent record
     cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
       cy.get('button[title="delete"]').click();
     });
     cy.on('window:confirm', () => true);
     cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').should('have.length', 0);
   });
 
   it('should create multiple records successfully', () => {

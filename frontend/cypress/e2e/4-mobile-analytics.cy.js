@@ -1,6 +1,8 @@
-/* global Cypress, cy */
 /* eslint-env cypress */
+/* global cy */
 describe('Mobile Analytics Navigation', () => {
+  let records;
+
   beforeEach(() => {
     // Set viewport to mobile size
     cy.viewport(375, 667);
@@ -17,6 +19,52 @@ describe('Mobile Analytics Navigation', () => {
         languagePreference: 'en'
       }
     }).as('getUserInfo');
+
+    // Provide a predictable set of records for each test
+    records = [
+      {
+        id: 1,
+        userId: 1,
+        level: 90,
+        notes: 'Initial record',
+        measurementTime: '2024-01-01T08:00:00Z',
+        createdAt: '2024-01-01T08:00:00Z',
+        updatedAt: '2024-01-01T08:00:00Z'
+      }
+    ];
+
+    cy.intercept('GET', '/api/records', (req) => {
+      req.reply(records);
+    }).as('getRecords');
+
+    cy.intercept('POST', '/api/records', (req) => {
+      const newRecord = {
+        ...req.body,
+        id: Date.now(),
+        userId: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      records.unshift(newRecord);
+      req.reply(newRecord);
+    }).as('addRecord');
+
+    cy.intercept('PUT', /\/api\/records\/(\d+)/, (req) => {
+      const id = parseInt(req.url.split('/').pop(), 10);
+      const idx = records.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        records[idx] = { ...records[idx], ...req.body, updatedAt: new Date().toISOString() };
+        req.reply(records[idx]);
+      } else {
+        req.reply(404, {});
+      }
+    }).as('editRecord');
+
+    cy.intercept('DELETE', /\/api\/records\/(\d+)/, (req) => {
+      const id = parseInt(req.url.split('/').pop(), 10);
+      records = records.filter(r => r.id !== id);
+      req.reply({ success: true });
+    }).as('deleteRecord');
 
     cy.visit('/dashboard');
     cy.ensureEnglishLanguage();
