@@ -6,6 +6,9 @@ backend/obj/
 backend/bin/ 
 backend/logs/
 
+# Ignore backend static files
+backend/wwwroot/
+
 # Ignore development settings with secrets
 backend/appsettings.Development.json
 
