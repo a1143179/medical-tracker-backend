@@ -163,6 +163,8 @@ authApi.MapGet("/login", (HttpContext context) =>
     var scheme = app.Environment.IsProduction() ? "https" : "http";
     var host = context.Request.Host.Value;
     var redirectUri = $"{scheme}://{host}/api/auth/callback";
+
+    app.Logger.LogInformation($"[GOOGLE OAUTH] Using redirectUri: {redirectUri}");
     
     var scope = "openid email profile";
     var responseType = "code";
@@ -223,6 +225,8 @@ authApi.MapGet("/callback", async (HttpContext context, AppDbContext db, ILogger
         var scheme = app.Environment.IsProduction() ? "https" : "http";
         var host = context.Request.Host.Value;
         var redirectUri = $"{scheme}://{host}/api/auth/callback";
+
+        logger.LogInformation($"[GOOGLE OAUTH CALLBACK] Using redirectUri: {redirectUri}");
         
         using var httpClient = new HttpClient();
         var tokenRequest = new FormUrlEncodedContent(new[]
