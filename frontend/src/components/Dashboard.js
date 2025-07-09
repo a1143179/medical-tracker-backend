@@ -545,7 +545,6 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 autoComplete: 'off',
                 inputMode: 'numeric',
                 pattern: '[0-9T:-]*',
-                onFocus: (e) => e.target.showPicker && e.target.showPicker(),
               }}
             />
             <TextField
@@ -910,7 +909,6 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 autoComplete: 'off',
                 inputMode: 'numeric',
                 pattern: '[0-9T:-]*',
-                onFocus: (e) => e.target.showPicker && e.target.showPicker(),
               }}
             />
             <TextField
