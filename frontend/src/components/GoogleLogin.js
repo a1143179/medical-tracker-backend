@@ -7,7 +7,7 @@ import { Box, Grid, Paper, Typography, Button, useTheme, useMediaQuery, Divider,
 
 const GoogleLogin = () => {
   const { loginWithGoogle } = useAuth();
-  const { language, setLanguage, t } = useLanguage();
+  const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -56,29 +56,29 @@ const GoogleLogin = () => {
         <Grid container spacing={4} sx={{ width: '100%' }} direction={isMobile ? 'column' : 'row'}>
           <Grid item xs={12} md={6} order={isMobile ? 2 : 1}>
             <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'block', md: 'block' } }}>
-              {t('whatYoullGet', {}) || (language === 'zh' ? '您将获得：' : "What you'll get:")}
+              {t('whatYoullGet')}
             </Typography>
             <Stack spacing={2}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <GoogleIcon color="success" />
-                <Typography variant="body1">{t('trackBloodSugar', {}) || (language === 'zh' ? '精准追踪血糖水平' : 'Track blood sugar levels with precision')}</Typography>
+                <Typography variant="body1">{t('trackBloodSugar')}</Typography>
               </Stack>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <GoogleIcon color="success" />
-                <Typography variant="body1">{t('viewTrends', {}) || (language === 'zh' ? '查看趋势和分析' : 'View trends and analytics')}</Typography>
+                <Typography variant="body1">{t('viewTrends')}</Typography>
               </Stack>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <GoogleIcon color="success" />
-                <Typography variant="body1">{t('exportData', {}) || (language === 'zh' ? '导出数据供医疗人员使用' : 'Export data for healthcare providers')}</Typography>
+                <Typography variant="body1">{t('exportData')}</Typography>
               </Stack>
             </Stack>
           </Grid>
           <Grid item xs={12} md={6} order={isMobile ? 1 : 2}>
             <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'none', md: 'block' } }}>
-              {t('welcomeBack', {}) || (language === 'zh' ? '欢迎回来' : 'Welcome Back')}
+              {t('welcomeBack')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, display: { xs: 'block', md: 'block' } }}>
-              {t('signInToAccess', {}) || (language === 'zh' ? '登录以访问您的个性化血糖追踪仪表板' : 'Sign in to access your personalized blood sugar tracking dashboard')}
+              {t('signInToAccess')}
             </Typography>
             <Button
               variant="contained"
@@ -90,25 +90,25 @@ const GoogleLogin = () => {
               sx={{ py: 1.5, fontWeight: 600, fontSize: '1rem', mb: 2 }}
               data-testid="google-signin-button"
             >
-              {t('signInWithGoogle', {}) || (language === 'zh' ? '使用 Google 登录' : 'Sign in with Google')}
+              {t('signInWithGoogle')}
             </Button>
             {/* Make secure auth text plain */}
             <Box sx={{ mt: 1 }}>
               <Typography variant="caption" color="primary.main">
-                {t('secureAuth', {}) || (language === 'zh' ? '由 Google 提供安全认证' : 'Secure authentication powered by Google')}
+                {t('secureAuth')}
               </Typography>
             </Box>
           </Grid>
         </Grid>
         <Divider sx={{ width: { xs: '90%', sm: '80%' }, mt: 4, mb: 2 }} />
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
-          {t('byContinuing', {}) || (language === 'zh' ? '继续即表示您同意我们的' : 'By continuing, you agree to our')}{' '}
+          {t('byContinuing')}{' '}
           <Box component="a" href="/terms" color="primary.main" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
-            {t('termsOfService', {}) || (language === 'zh' ? '服务条款' : 'Terms of Service')}
+            {t('termsOfService')}
           </Box>{' '}
-          {t('and', {}) || (language === 'zh' ? '和' : 'and')}{' '}
+          {t('and')}{' '}
           <Box component="a" href="/privacy" color="primary.main" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
-            {t('privacyPolicy', {}) || (language === 'zh' ? '隐私政策' : 'Privacy Policy')}
+            {t('privacyPolicy')}
           </Box>
         </Typography>
       </Paper>
