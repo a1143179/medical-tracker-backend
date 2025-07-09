@@ -137,7 +137,8 @@ cleanup() {
             echo -e "${GREEN}✅ Backend stopped${NC}"
         fi
     fi
-    if [ ! -z "$POSTGRES_CONTAINER" ]; then
+    # Only stop the database if --db was NOT specified
+    if [ "$RUN_DB" = false ] && [ ! -z "$POSTGRES_CONTAINER" ]; then
         docker stop $POSTGRES_CONTAINER >/dev/null 2>&1
         echo -e "${GREEN}✅ PostgreSQL stopped${NC}"
     fi
@@ -253,7 +254,10 @@ if [ "$RUN_DB" = true ]; then
             echo -e "${GREEN}✅ Backend is running on http://localhost:3000${NC}"
         else
             echo -e "${RED}❌ Backend is not responding${NC}"
-            cleanup
+            # Only call cleanup if --db was NOT specified
+            if [ "$RUN_DB" = false ]; then
+                cleanup
+            fi
         fi
     fi
     if [ "$SKIP_FRONTEND" -eq 0 ]; then

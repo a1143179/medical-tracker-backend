@@ -24,7 +24,7 @@ COPY --from=react-build /app/build ./wwwroot
 
 # expose port 8080 for Azure App Service compatibility
 EXPOSE 8080
-ENV ASPNETCORE_URLS=http://+:${PORT}
+ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 ENTRYPOINT ["dotnet", "backend.dll"]
