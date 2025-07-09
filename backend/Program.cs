@@ -14,6 +14,7 @@ using Serilog;
 using Microsoft.AspNetCore.Http.Extensions;
 using System.IO;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 
 // Add file logging with Serilog
 Directory.CreateDirectory("logs");
@@ -110,6 +111,12 @@ builder.Services.AddAuthentication(options =>
 });
 
 var app = builder.Build();
+
+// Add Forwarded Headers middleware to respect X-Forwarded-Proto (for correct scheme in Azure)
+app.UseForwardedHeaders(new ForwardedHeadersOptions
+{
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
+});
 
 // Configure static files to serve from frontend build directory
 app.UseStaticFiles(); // Serve from wwwroot by default
