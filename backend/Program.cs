@@ -115,7 +115,9 @@ var app = builder.Build();
 // Add Forwarded Headers middleware to respect X-Forwarded-Proto (for correct scheme in Azure)
 app.UseForwardedHeaders(new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor
+    ForwardedHeaders = ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedFor,
+    KnownNetworks = { }, // Clear the default to trust Azure proxy
+    KnownProxies = { }   // Clear the default to trust Azure proxy
 });
 
 // Configure static files to serve from frontend build directory
