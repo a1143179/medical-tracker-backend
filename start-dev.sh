@@ -213,13 +213,14 @@ if [ "$RUN_FRONTEND" = true ]; then
         echo -e "${GREEN}🔨 Building frontend for production...${NC}"
         npm run build
         
-        # Copy build to backend directory
-        echo -e "${GREEN}📁 Copying frontend build to backend...${NC}"
-        rm -rf ../backend/build
-        cp -r build ../backend/
+        # Copy build to backend/wwwroot directory
+        echo -e "${GREEN}📁 Copying frontend build to backend/wwwroot...${NC}"
+        rm -rf ../backend/wwwroot
+        mkdir -p ../backend/wwwroot
+        cp -r build/* ../backend/wwwroot/
         
         cd ..
-        echo -e "${GREEN}✅ Frontend build completed and copied to backend${NC}"
+        echo -e "${GREEN}✅ Frontend build completed and copied to backend/wwwroot${NC}"
     else
         echo -e "${YELLOW}⚠️  Frontend will not be built due to port conflict.${NC}"
     fi
@@ -310,7 +311,7 @@ elif [ "$RUN_FRONTEND" = true ]; then
     echo ""
     echo -e "${GREEN}🎉 Frontend build completed!${NC}"
     echo ""
-    echo -e "${BLUE}📁 Build files copied to: ${GREEN}backend/build/${NC}"
+    echo -e "${BLUE}📁 Build files copied to: ${GREEN}backend/wwwroot/${NC}"
     echo ""
     exit 0
 

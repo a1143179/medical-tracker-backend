@@ -59,12 +59,22 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.IdleTimeout = TimeSpan.FromHours(24);
-    // For local development (http):
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
-    // For production (https), use:
-    // options.Cookie.SameSite = SameSiteMode.None;
-    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    
+    // Auto-detect environment for security settings
+    var isProduction = builder.Environment.IsProduction();
+    if (isProduction)
+    {
+        // For production (https):
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+    else
+    {
+        // For local development (http):
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    }
+    
     options.Cookie.Name = ".AspNetCore.Session";
     options.Cookie.MaxAge = TimeSpan.FromHours(24);
     options.Cookie.Domain = null;
@@ -82,12 +92,21 @@ builder.Services.AddAuthentication(options =>
     options.LoginPath = "/api/auth/login";
     options.LogoutPath = "/api/auth/logout";
     options.ExpireTimeSpan = TimeSpan.FromHours(24);
-    // For local development (http):
-    options.Cookie.SameSite = SameSiteMode.Lax;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.None;
-    // For production (https), use:
-    // options.Cookie.SameSite = SameSiteMode.None;
-    // options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    
+    // Auto-detect environment for security settings
+    var isProduction = builder.Environment.IsProduction();
+    if (isProduction)
+    {
+        // For production (https):
+        options.Cookie.SameSite = SameSiteMode.None;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    }
+    else
+    {
+        // For local development (http):
+        options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = CookieSecurePolicy.None;
+    }
 });
 
 var app = builder.Build();
@@ -130,7 +149,12 @@ authApi.MapGet("/login", (HttpContext context) =>
     
     // Build Google OAuth URL manually
     var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? builder.Configuration["Google:ClientId"] ?? "";
-    var redirectUri = "http://localhost:3000/api/auth/callback";
+    
+    // Dynamically determine redirect URI based on current request
+    var scheme = context.Request.Scheme;
+    var host = context.Request.Host.Value;
+    var redirectUri = $"{scheme}://{host}/api/auth/callback";
+    
     var scope = "openid email profile";
     var responseType = "code";
     
@@ -185,7 +209,11 @@ authApi.MapGet("/callback", async (HttpContext context, AppDbContext db, ILogger
         // Exchange authorization code for tokens
         var clientId = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID") ?? config["Google:ClientId"] ?? "";
         var clientSecret = Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET") ?? config["Google:ClientSecret"] ?? "";
-        var redirectUri = "http://localhost:3000/api/auth/callback";
+        
+        // Dynamically determine redirect URI based on current request
+        var scheme = context.Request.Scheme;
+        var host = context.Request.Host.Value;
+        var redirectUri = $"{scheme}://{host}/api/auth/callback";
         
         using var httpClient = new HttpClient();
         var tokenRequest = new FormUrlEncodedContent(new[]
@@ -292,18 +320,7 @@ static string ExtractValue(string json, string key)
     return match.Success ? match.Groups[1].Value : "";
 }
 
-// Add route for /login to handle error redirects
-app.MapGet("/login", (HttpContext context) =>
-{
-    var error = context.Request.Query["error"].ToString();
-    if (!string.IsNullOrEmpty(error))
-    {
-        // Redirect to frontend with error parameter
-        return Results.Redirect($"/?error={Uri.EscapeDataString(error)}");
-    }
-    // If no error, just redirect to home page
-    return Results.Redirect("/");
-});
+// Note: /login route is handled by frontend React router
 
 // Logout endpoint
 authApi.MapPost("/logout", async (HttpContext context) =>
@@ -462,12 +479,11 @@ api.MapDelete("/{id}", async (int id, HttpContext context, AppDbContext db) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
-// React files
+// React files - serve static files from wwwroot
 app.UseDefaultFiles(new DefaultFilesOptions
 {
     DefaultFileNames = new List<string> { "index.html" }
 });
-app.UseStaticFiles();
 
 // database migration
 using (var scope = app.Services.CreateScope())
