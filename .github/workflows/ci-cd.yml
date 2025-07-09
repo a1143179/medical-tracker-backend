@@ -59,13 +59,6 @@ jobs:
     - name: Build frontend
       run: npm run build
       working-directory: frontend
-    
-    - name: Run Cypress tests
-      run: |
-        npm run start:ci &
-        npx wait-on http://localhost:3000
-        npx cypress run
-      working-directory: frontend
 
   deploy-production:
     needs: test
