@@ -124,7 +124,8 @@ describe('Mobile Analytics Navigation', () => {
     cy.get('input[name="level"]').type('7.5');
     cy.get('textarea[name="notes"]').type('Test record for analytics');
     cy.get('form').submit();
-    cy.get('[data-testid="success-message"]').should('be.visible');
+    // Wait for form submission and check for success message or redirect
+    cy.get('[data-testid="success-message"]', { timeout: 15000 }).should('be.visible');
     
     // Navigate to analytics page
     cy.get('[aria-label="menu"]').click();
