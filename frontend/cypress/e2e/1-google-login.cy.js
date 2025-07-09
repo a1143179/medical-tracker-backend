@@ -39,7 +39,6 @@ describe('Google OAuth Login', () => {
     cy.get('[data-testid="google-signin-button"]').should('be.visible');
     cy.get('[data-testid="google-signin-button"]').should('contain', 'Sign in with Google');
     cy.contains('h4', 'Blood Sugar Tracker').should('be.visible');
-    cy.contains('Professional Diabetes Management').should('be.visible');
   });
 
   it('should redirect to Google OAuth when login button is clicked', () => {

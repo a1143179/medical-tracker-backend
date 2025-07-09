@@ -596,6 +596,21 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 {t('addRecordButton')}
               </Button>
             </Box>
+            {/* Snackbar for notifications (mobile) */}
+            <Snackbar
+              open={snackbar.open}
+              autoHideDuration={6000}
+              onClose={() => setSnackbar({ ...snackbar, open: false })}
+              anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+            >
+              <Alert 
+                onClose={() => setSnackbar({ ...snackbar, open: false })} 
+                severity={snackbar.severity}
+                data-testid={snackbar.severity === 'success' ? 'success-message' : 'error-message'}
+              >
+                {snackbar.message}
+              </Alert>
+            </Snackbar>
           </Box>
         </Paper>
       </Box>
