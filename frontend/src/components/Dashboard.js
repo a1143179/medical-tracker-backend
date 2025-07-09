@@ -542,7 +542,10 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
               InputLabelProps={{ shrink: true }}
               inputProps={{
                 step: 60, // 1 minute steps
-                autoComplete: 'off'
+                autoComplete: 'off',
+                inputMode: 'numeric',
+                pattern: '[0-9T:-]*',
+                onFocus: (e) => e.target.showPicker && e.target.showPicker(),
               }}
             />
             <TextField
@@ -889,7 +892,10 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
               InputLabelProps={{ shrink: true }}
               inputProps={{
                 step: 60, // 1 minute steps
-                autoComplete: 'off'
+                autoComplete: 'off',
+                inputMode: 'numeric',
+                pattern: '[0-9T:-]*',
+                onFocus: (e) => e.target.showPicker && e.target.showPicker(),
               }}
             />
             <TextField

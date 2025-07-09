@@ -35,23 +35,6 @@ const GoogleLogin = () => {
           alignItems: 'center',
         }}
       >
-        <Box sx={{ width: '100%', display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-          <Button
-            size="small"
-            variant={language === 'en' ? 'contained' : 'outlined'}
-            onClick={() => setLanguage('en')}
-            sx={{ mr: 1 }}
-          >
-            English
-          </Button>
-          <Button
-            size="small"
-            variant={language === 'zh' ? 'contained' : 'outlined'}
-            onClick={() => setLanguage('zh')}
-          >
-            中文
-          </Button>
-        </Box>
         <Stack direction="row" alignItems="center" spacing={2} sx={{ width: '100%', mb: 2, mt: 2, justifyContent: 'center' }}>
           {!isMobile && (
             <Avatar sx={{ bgcolor: 'primary.main', width: 56, height: 56 }}>
@@ -109,8 +92,8 @@ const GoogleLogin = () => {
             >
               {t('signInWithGoogle', {}) || (language === 'zh' ? '使用 Google 登录' : 'Sign in with Google')}
             </Button>
-            <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, bgcolor: 'background.paper', borderRadius: 1, p: 1, boxShadow: 1, width: 'fit-content', mt: 1 }}>
-              <LocalHospitalIcon color="primary" sx={{ fontSize: 20 }} />
+            {/* Make secure auth text plain */}
+            <Box sx={{ mt: 1 }}>
               <Typography variant="caption" color="primary.main">
                 {t('secureAuth', {}) || (language === 'zh' ? '由 Google 提供安全认证' : 'Secure authentication powered by Google')}
               </Typography>
@@ -120,11 +103,11 @@ const GoogleLogin = () => {
         <Divider sx={{ width: { xs: '90%', sm: '80%' }, mt: 4, mb: 2 }} />
         <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
           {t('byContinuing', {}) || (language === 'zh' ? '继续即表示您同意我们的' : 'By continuing, you agree to our')}{' '}
-          <Box component="a" href="#" color="primary.main" sx={{ textDecoration: 'underline' }}>
+          <Box component="a" href="/terms" color="primary.main" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
             {t('termsOfService', {}) || (language === 'zh' ? '服务条款' : 'Terms of Service')}
           </Box>{' '}
           {t('and', {}) || (language === 'zh' ? '和' : 'and')}{' '}
-          <Box component="a" href="#" color="primary.main" sx={{ textDecoration: 'underline' }}>
+          <Box component="a" href="/privacy" color="primary.main" sx={{ textDecoration: 'underline', cursor: 'pointer' }}>
             {t('privacyPolicy', {}) || (language === 'zh' ? '隐私政策' : 'Privacy Policy')}
           </Box>
         </Typography>

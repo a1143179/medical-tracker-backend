@@ -7,6 +7,8 @@ import { LanguageProvider, useLanguage } from './contexts/LanguageContext';
 import GoogleLogin from './components/GoogleLogin';
 import Dashboard from './components/Dashboard';
 import Header from './components/Header';
+import TermsPage from './components/TermsPage';
+import PrivacyPage from './components/PrivacyPage';
 
 // Create a theme instance
 const theme = createTheme({
@@ -59,6 +61,14 @@ const AppLayout = () => {
               <Dashboard mobilePage={mobilePage} onMobilePageChange={handleMobileNavigate} />
             </ProtectedRoute>
           } 
+        />
+        <Route 
+          path="/terms"
+          element={<TermsPage />}
+        />
+        <Route 
+          path="/privacy"
+          element={<PrivacyPage />}
         />
         <Route 
           path="/" 
