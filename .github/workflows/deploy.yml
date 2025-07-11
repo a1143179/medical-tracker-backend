@@ -112,12 +112,15 @@ jobs:
         IMAGE_NAME: ${{ env.IMAGE_NAME }}
         DOCKER_HUB_NAMESPACE: ${{ env.DOCKER_HUB_NAMESPACE }}
       run: |
-        # Get all tags except latest, sort by date, and keep only the last 2
-        tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$DOCKER_HUB_NAMESPACE/$IMAGE_NAME/tags/?page_size=100" | jq -r '.results | map(select(.name != "latest")) | sort_by(.last_updated) | reverse | .[2:] | .[].name')
-        for tag in $tags; do
-          echo "Deleting tag: $tag"
-          curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" -X DELETE "https://hub.docker.com/v2/repositories/$DOCKER_HUB_NAMESPACE/$IMAGE_NAME/tags/$tag/"
-        done
+        tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$DOCKER_HUB_NAMESPACE/$IMAGE_NAME/tags/?page_size=100" | jq -r 'if .results then .results | map(select(.name != "latest")) | sort_by(.last_updated) | reverse | .[2:] | .[].name else empty end')
+        if [ -z "$tags" ]; then
+          echo "No old tags to delete."
+        else
+          for tag in $tags; do
+            echo "Deleting tag: $tag"
+            curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" -X DELETE "https://hub.docker.com/v2/repositories/$DOCKER_HUB_NAMESPACE/$IMAGE_NAME/tags/$tag/"
+          done
+        fi
 
   build-and-deploy:
     runs-on: ubuntu-latest
