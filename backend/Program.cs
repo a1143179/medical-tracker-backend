@@ -167,21 +167,23 @@ if (app.Environment.IsDevelopment())
         catch (Exception ex)
         {
             app.Logger.LogWarning($"[DEV PROXY] Failed to proxy to {targetUrl}: {ex.Message}");
-            // Fallback to serving index.html for SPA routes
-            var fallbackHtml = @"<!DOCTYPE html>
-<html>
-<head>
-    <title>Blood Sugar History</title>
-</head>
-<body>
-    <div id=""root""></div>
-    <script src=""/static/js/bundle.js""></script>
-</body>
-</html>";
-            context.Response.StatusCode = 200;
-            context.Response.ContentType = "text/html";
-            await context.Response.WriteAsync(fallbackHtml);
-            return;
+            // Fallback: fetch and serve the frontend's root (index.html) for SPA routes
+            try
+            {
+                var indexResponse = await httpClient.GetAsync($"{reactDevServerUrl}/");
+                var indexContent = await indexResponse.Content.ReadAsStringAsync();
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "text/html";
+                await context.Response.WriteAsync(indexContent);
+                return;
+            }
+            catch
+            {
+                context.Response.StatusCode = 500;
+                context.Response.ContentType = "text/plain";
+                await context.Response.WriteAsync("Frontend dev server is not running and fallback failed.");
+                return;
+            }
         }
     });
 }
