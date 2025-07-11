@@ -1,15 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import GoogleIcon from '@mui/icons-material/Google';
-import { Box, Grid, Paper, Typography, Button, useTheme, useMediaQuery, Divider, Stack, Avatar } from '@mui/material';
+import { Box, Grid, Paper, Typography, Button, useTheme, useMediaQuery, Divider, Stack, Avatar, CircularProgress } from '@mui/material';
 
 const GoogleLogin = () => {
   const { loginWithGoogle } = useAuth();
   const { t } = useLanguage();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async (e) => {
+    setLoading(true);
+    try {
+      await loginWithGoogle(e);
+    } finally {
+      setLoading(false); // In case loginWithGoogle does not redirect or fails
+    }
+  };
 
   return (
     <Box
@@ -20,8 +30,28 @@ const GoogleLogin = () => {
         alignItems: 'center',
         justifyContent: 'center',
         p: 2,
+        position: 'relative',
       }}
     >
+      {/* Dimmer and spinner for mobile login loading */}
+      {isMobile && loading && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            bgcolor: 'rgba(0,0,0,0.4)',
+            zIndex: 10,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <CircularProgress color="primary" size={64} thickness={5} />
+        </Box>
+      )}
       <Paper
         elevation={8}
         sx={{
@@ -85,10 +115,11 @@ const GoogleLogin = () => {
               color="primary"
               fullWidth
               startIcon={<GoogleIcon />}
-              onClick={e => { loginWithGoogle(e); }}
+              onClick={handleLogin}
               className="google-signin-button"
               sx={{ py: 1.5, fontWeight: 600, fontSize: '1rem', mb: 2 }}
               data-testid="google-signin-button"
+              disabled={loading}
             >
               {t('signInWithGoogle')}
             </Button>
