@@ -129,60 +129,68 @@ if (app.Environment.IsDevelopment())
 {
     app.Use(async (context, next) =>
     {
-        // Only proxy requests that are not API calls and not static files
-        if (!context.Request.Path.StartsWithSegments("/api") && 
-            !context.Request.Path.StartsWithSegments("/_framework") &&
-            !context.Request.Path.StartsWithSegments("/static") &&
-            !context.Request.Path.StartsWithSegments("/favicon.ico") &&
-            !context.Request.Path.StartsWithSegments("/logo") &&
-            !context.Request.Path.StartsWithSegments("/manifest.json") &&
-            !context.Request.Path.StartsWithSegments("/robots.txt"))
+        // Handle API routes - let them continue to the next middleware
+        if (context.Request.Path.StartsWithSegments("/api"))
         {
-            try
-            {
-                using var httpClient = new HttpClient();
-                var reactDevServerUrl = "http://localhost:3001";
-                var targetUrl = $"{reactDevServerUrl}{context.Request.Path}{context.Request.QueryString}";
-                
-                app.Logger.LogInformation($"[DEV PROXY] Proxying {context.Request.Path} to {targetUrl}");
-                
-                // Forward the request to React dev server
-                var response = await httpClient.GetAsync(targetUrl);
-                var content = await response.Content.ReadAsStringAsync();
-                
-                // Set response headers
-                context.Response.StatusCode = (int)response.StatusCode;
-                context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "text/html";
-                
-                // Forward important headers
-                if (response.Headers.Contains("Cache-Control"))
-                {
-                    context.Response.Headers["Cache-Control"] = new Microsoft.Extensions.Primitives.StringValues(response.Headers.GetValues("Cache-Control").ToArray());
-                }
-                
-                await context.Response.WriteAsync(content);
-                return;
-            }
-            catch (Exception ex)
-            {
-                app.Logger.LogError(ex, "[DEV PROXY] Failed to proxy request to React dev server");
-                // For React Router, always serve index.html for non-API routes
-                var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
-                if (File.Exists(indexPath))
-                {
-                    context.Response.ContentType = "text/html";
-                    await context.Response.SendFileAsync(indexPath);
-                    return;
-                }
-            }
+            await next();
+            return;
         }
         
-        await next();
+        // Proxy all non-API requests to frontend dev server
+        using var httpClient = new HttpClient();
+        var reactDevServerUrl = "http://localhost:3001";
+        var targetUrl = $"{reactDevServerUrl}{context.Request.Path}{context.Request.QueryString}";
+        app.Logger.LogInformation($"[DEV PROXY] Proxying {context.Request.Path} to {targetUrl}");
+        
+        try
+        {
+            var response = await httpClient.GetAsync(targetUrl);
+            var content = await response.Content.ReadAsStringAsync();
+            
+            // If frontend returns 404, serve index.html for SPA fallback
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                app.Logger.LogInformation($"[DEV PROXY] Frontend returned 404 for {context.Request.Path}, serving index.html");
+                var indexResponse = await httpClient.GetAsync($"{reactDevServerUrl}/");
+                var indexContent = await indexResponse.Content.ReadAsStringAsync();
+                context.Response.StatusCode = 200;
+                context.Response.ContentType = "text/html";
+                await context.Response.WriteAsync(indexContent);
+                return;
+            }
+            
+            context.Response.StatusCode = (int)response.StatusCode;
+            context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "text/html";
+            await context.Response.WriteAsync(content);
+            return;
+        }
+        catch (Exception ex)
+        {
+            app.Logger.LogWarning($"[DEV PROXY] Failed to proxy to {targetUrl}: {ex.Message}");
+            // Fallback to serving index.html for SPA routes
+            var fallbackHtml = @"<!DOCTYPE html>
+<html>
+<head>
+    <title>Blood Sugar History</title>
+</head>
+<body>
+    <div id=""root""></div>
+    <script src=""/static/js/bundle.js""></script>
+</body>
+</html>";
+            context.Response.StatusCode = 200;
+            context.Response.ContentType = "text/html";
+            await context.Response.WriteAsync(fallbackHtml);
+            return;
+        }
     });
 }
-
-// Configure static files to serve from frontend build directory
-app.UseStaticFiles(); // Serve from wwwroot by default
+else
+{
+    // Only use static files and fallback in production
+    app.UseStaticFiles();
+    app.MapFallbackToFile("index.html");
+}
 
 // Log the current ASPNETCORE_ENVIRONMENT value
 var env = app.Environment.EnvironmentName;
@@ -199,7 +207,7 @@ if (app.Environment.IsDevelopment())
 app.UseSession();
 
 // Add fallback to serve index.html for client-side routing
-app.MapFallbackToFile("index.html");
+// app.MapFallbackToFile("index.html"); // This line is now handled by the new_code
 
 // 3. define API endpoints (before authentication middleware)
 var api = app.MapGroup("/api/records");
@@ -554,10 +562,10 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // React files - serve static files from wwwroot
-app.UseDefaultFiles(new DefaultFilesOptions
-{
-    DefaultFileNames = new List<string> { "index.html" }
-});
+// app.UseDefaultFiles(new DefaultFilesOptions
+// {
+//     DefaultFileNames = new List<string> { "index.html" }
+// }); // This line is now handled by the new_code
 
 // database migration
 using (var scope = app.Services.CreateScope())
@@ -566,8 +574,8 @@ using (var scope = app.Services.CreateScope())
     dbContext.Database.Migrate();
 }
 
-// Ensure the app listens on the correct port for Azure
-var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
+// Ensure the app listens on the correct port
+var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
 app.Urls.Clear();
 app.Urls.Add($"http://0.0.0.0:{port}");
 

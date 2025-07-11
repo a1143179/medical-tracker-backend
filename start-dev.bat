@@ -15,12 +15,21 @@ if "%~1"=="--frontend" set "RUN_FRONTEND=true"
 shift
 goto :parse_args
 
+goto :after_parse_args
+
 :after_parse_args
 REM If no arguments provided, start all services
 if "%RUN_DB%"=="false" if "%RUN_BACKEND%"=="false" if "%RUN_FRONTEND%"=="false" (
   set "RUN_DB=true"
   set "RUN_BACKEND=true"
   set "RUN_FRONTEND=true"
+)
+
+REM Check Docker is running before anything else
+docker info >nul 2>&1
+if %errorlevel% neq 0 (
+  echo Docker is not running or not installed. Please start Docker Desktop or install Docker from https://www.docker.com/products/docker-desktop/
+  exit /b 1
 )
 
 REM Display what services will be started
@@ -30,156 +39,98 @@ if "%RUN_BACKEND%"=="true" set "START_MSG=!START_MSG!Backend "
 if "%RUN_FRONTEND%"=="true" set "START_MSG=!START_MSG!Frontend "
 echo !START_MSG!
 
-REM MAIN LOGIC STARTS HERE - NO FUNCTIONS OR LABELS BEFORE THIS
-echo Checking prerequisites...
-
-REM Check if Docker is running (only if we need database)
-if "%RUN_DB%"=="true" (
-  docker info >nul 2>&1
-  if %errorlevel% neq 0 (
-    echo Docker is not running. Please start Docker first.
-    exit /b 1
-  )
-  echo Docker is running
-)
-
-REM Check if Node.js is installed (only if we need frontend)
+REM Check prerequisites
 if "%RUN_FRONTEND%"=="true" (
-  where node >nul 2>&1
-  if %errorlevel% neq 0 (
-    echo Node.js is not installed. Please install Node.js first.
+  setlocal enabledelayedexpansion
+  for /f "delims=" %%V in ('node --version 2^>nul') do set NODE_VERSION=%%V
+  echo Node.js version: !NODE_VERSION!
+  echo !NODE_VERSION! | findstr /b /c:"v" >nul
+  if !errorlevel! neq 0 (
+    echo Node.js is not installed or not in PATH. Please install Node.js from https://nodejs.org/ or restart your terminal after installation.
     exit /b 1
   )
-  echo Node.js found
+  endlocal
 )
-
-REM Check if .NET is installed (only if we need backend)
 if "%RUN_BACKEND%"=="true" (
   where dotnet >nul 2>&1
   if %errorlevel% neq 0 (
     echo .NET SDK is not installed. Please install .NET SDK first.
     exit /b 1
   )
-  echo .NET SDK found
 )
 
 echo Checking ports...
 
+REM Track status for summary
+set "DB_STATUS="
+set "BACKEND_STATUS="
+set "FRONTEND_STATUS="
+
 REM Start PostgreSQL (port 5432)
 if "%RUN_DB%"=="true" (
-  echo Checking port 5432 for database...
+  echo Checking port 5432...
+  set "SKIP_DB="
   for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":5432 " ^| findstr LISTENING') do (
-    echo Port 5432 is already in use by PID %%a
-    set SKIP_DB=1
+    set "SKIP_DB=1"
+    set "DB_STATUS=SKIPPED (port 5432 in use)"
     goto :db_skip
   )
-  set SKIP_DB=0
-  echo Port 5432 is available
-  echo Starting PostgreSQL...
-  
+  set "DB_STATUS=STARTING"
   REM Check if PostgreSQL container already exists
   docker ps -a --format "table {{.Names}}" | findstr "bloodsugar-postgres" >nul 2>&1
   if %errorlevel% equ 0 (
-      echo PostgreSQL container exists, starting it...
-      docker start bloodsugar-postgres
+      docker start bloodsugar-postgres >nul 2>&1
       set POSTGRES_CONTAINER=bloodsugar-postgres
   ) else (
-      echo Creating PostgreSQL container...
-      docker run -d --name bloodsugar-postgres -e POSTGRES_DB=bloodsugar -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5432:5432 postgres:15
+      docker run -d --name bloodsugar-postgres -e POSTGRES_DB=bloodsugar -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=password -p 5432:5432 postgres:15 >nul 2>&1
       set POSTGRES_CONTAINER=bloodsugar-postgres
   )
-  
-  REM Wait for PostgreSQL to be ready
-  echo Waiting for PostgreSQL to be ready...
   :wait_for_postgres
   docker exec !POSTGRES_CONTAINER! pg_isready -U postgres >nul 2>&1
   if %errorlevel% neq 0 (
-      echo -n .
       timeout /t 1 /nobreak >nul
       goto wait_for_postgres
   )
-  echo.
-  echo PostgreSQL is ready
+  set "DB_STATUS=RUNNING (localhost:5432)"
   goto :db_done
 )
-
 :db_skip
-if "%RUN_DB%"=="true" (
-  echo Database skipped (port 5432 is in use)
-  REM If only database was requested, exit immediately
-  if "%RUN_BACKEND%"=="false" if "%RUN_FRONTEND%"=="false" (
-    exit /b 0
-  )
-)
 :db_done
 
 REM Start backend (port 3000)
 if "%RUN_BACKEND%"=="true" (
-  echo Checking port 3000 for backend...
+  echo Checking port 3000...
+  set "SKIP_BACKEND="
   for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3000 " ^| findstr LISTENING') do (
-    echo Port 3000 is already in use by PID %%a
-    set SKIP_BACKEND=1
+    set "SKIP_BACKEND=1"
+    set "BACKEND_STATUS=SKIPPED (port 3000 in use)"
     goto :backend_skip
   )
-  set SKIP_BACKEND=0
-  echo Port 3000 is available
-  echo Starting backend with hot reload...
-  cd backend
-  
-  REM Always restore backend dependencies
-  echo Restoring backend dependencies...
-  dotnet restore
-  
-  set DOTNET_ENVIRONMENT=Development
-  set ASPNETCORE_URLS=http://localhost:3000
-  dotnet watch run
-  cd ..
-  timeout /t 5 /nobreak >nul
-  curl -s http://localhost:3000/api/health >nul 2>&1
-  if %errorlevel% neq 0 (
-    echo Backend is starting up...
-    timeout /t 10 /nobreak >nul
-  )
+  set "BACKEND_STATUS=STARTING"
+  start "backend" cmd /c "cd backend && dotnet restore && dotnet watch run"
+  timeout /t 2 /nobreak >nul
+  set "BACKEND_STATUS=RUNNING (http://localhost:3000)"
   goto :backend_done
 )
-
 :backend_skip
-if "%RUN_BACKEND%"=="true" (
-  echo Backend skipped (port 3000 is in use)
-)
 :backend_done
 
 REM Start React development server (port 3001)
 if "%RUN_FRONTEND%"=="true" (
-  echo Checking port 3001 for frontend...
+  echo Checking port 3001...
+  set "SKIP_FRONTEND="
   for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":3001 " ^| findstr LISTENING') do (
-    echo Port 3001 is already in use by PID %%a
-    set SKIP_FRONTEND=1
+    set "SKIP_FRONTEND=1"
+    set "FRONTEND_STATUS=SKIPPED (port 3001 in use)"
     goto :frontend_skip
   )
-  set SKIP_FRONTEND=0
-  echo Port 3001 is available
-  echo Starting React development server...
-  
-  REM Always install frontend dependencies
-  echo Installing frontend dependencies...
-  cd frontend
-  call npm install
-  cd ..
-  
-  REM Start React development server on port 3001
-  echo Starting React development server on port 3001...
-  cd frontend
-  set "PORT=3001"
-  call npm start
-  cd ..
+  set "FRONTEND_STATUS=STARTING"
+  start "frontend" cmd /c "cd frontend && npm install && set PORT=3001 && npm start"
+  timeout /t 2 /nobreak >nul
+  set "FRONTEND_STATUS=RUNNING (http://localhost:3001)"
   goto :frontend_done
 )
-
 :frontend_skip
-if "%RUN_FRONTEND%"=="true" (
-  echo Frontend skipped (port 3001 is in use)
-)
 :frontend_done
 
 echo Waiting for services to be ready...
@@ -187,54 +138,45 @@ timeout /t 10 /nobreak >nul
 
 echo Checking service status...
 
-set "SERVICES_RUNNING="
-
 REM Check PostgreSQL
 if "%RUN_DB%"=="true" (
-  if !SKIP_DB! equ 0 (
-    REM We started the database, check if it's running
+  if defined SKIP_DB (
+    set "DB_STATUS=SKIPPED (port 5432 in use)"
+  ) else (
     docker exec !POSTGRES_CONTAINER! pg_isready -U postgres >nul 2>&1
     if %errorlevel% equ 0 (
-      echo PostgreSQL is running on localhost:5432
-      set "SERVICES_RUNNING=!SERVICES_RUNNING!Database "
+      set "DB_STATUS=RUNNING (localhost:5432)"
     ) else (
-      echo PostgreSQL is not responding
+      set "DB_STATUS=NOT RESPONDING"
     )
-  ) else (
-    REM Database was skipped, but we already tested it's running in db_skip
-    echo PostgreSQL is already running on localhost:5432
-    set "SERVICES_RUNNING=!SERVICES_RUNNING!Database "
   )
 )
 
 REM Check backend
 if "%RUN_BACKEND%"=="true" (
-  if !SKIP_BACKEND! equ 0 (
+  if defined SKIP_BACKEND (
+    set "BACKEND_STATUS=SKIPPED (port 3000 in use)"
+  ) else (
     curl -s http://localhost:3000/api/health >nul 2>&1
     if %errorlevel% equ 0 (
-      echo Backend is running on http://localhost:3000
-      set "SERVICES_RUNNING=!SERVICES_RUNNING!Backend "
+      set "BACKEND_STATUS=RUNNING (http://localhost:3000)"
     ) else (
-      echo Backend is not responding
+      set "BACKEND_STATUS=NOT RESPONDING"
     )
-  ) else (
-    echo Backend skipped (port 3000 in use)
   )
 )
 
 REM Check frontend
 if "%RUN_FRONTEND%"=="true" (
-  if !SKIP_FRONTEND! equ 0 (
+  if defined SKIP_FRONTEND (
+    set "FRONTEND_STATUS=SKIPPED (port 3001 in use)"
+  ) else (
     curl -s http://localhost:3001 >nul 2>&1
     if %errorlevel% equ 0 (
-      echo React dev server is running on http://localhost:3001
-      set "SERVICES_RUNNING=!SERVICES_RUNNING!Frontend "
+      set "FRONTEND_STATUS=RUNNING (http://localhost:3001)"
     ) else (
-      echo React dev server is still starting up...
-      echo This is normal on first run - it may take 30-60 seconds
+      set "FRONTEND_STATUS=STARTING UP (may take 30-60 seconds on first run)"
     )
-  ) else (
-    echo Frontend skipped (port 3001 in use)
   )
 )
 
@@ -242,60 +184,31 @@ echo.
 echo Services started successfully!
 echo.
 
-REM Display service information based on what's running
+REM Print status for each service
+if "%RUN_DB%"=="true" echo Database: !DB_STATUS!
+if "%RUN_BACKEND%"=="true" echo Backend: !BACKEND_STATUS!
+if "%RUN_FRONTEND%"=="true" echo Frontend: !FRONTEND_STATUS!
+
+echo.
+REM Print summary block only once
 if "%RUN_DB%"=="true" if "%RUN_BACKEND%"=="true" if "%RUN_FRONTEND%"=="true" (
-  REM All services mode
   echo Application: http://localhost:3000
   echo Backend API: http://localhost:3000/api
-  echo Database: localhost:5432
-  echo    Database Name: bloodsugar
-  echo    Username: postgres
-  echo    Password: password
-  echo.
-  echo Development Setup:
-  echo   • Backend runs on port 3000 with hot reload
-  echo   • React dev server runs on port 3001
-  echo   • Backend proxies frontend requests to React dev server
-  echo   • All requests go through localhost:3000 (same domain)
-  
+  echo Database: localhost:5432 (bloodsugar/postgres/password)
 ) else if "%RUN_BACKEND%"=="true" if "%RUN_FRONTEND%"=="true" (
-  REM Backend + Frontend mode
   echo Application: http://localhost:3000
   echo Backend API: http://localhost:3000/api
-  echo Development Setup:
-  echo   • Backend runs on port 3000 with hot reload
-  echo   • React dev server runs on port 3001
-  echo   • Backend proxies frontend requests to React dev server
-  
 ) else if "%RUN_DB%"=="true" if "%RUN_BACKEND%"=="true" (
-  REM Database + Backend mode
   echo Backend API: http://localhost:3000/api
-  echo Database: localhost:5432
-  echo    Database Name: bloodsugar
-  echo    Username: postgres
-  echo    Password: password
-  
+  echo Database: localhost:5432 (bloodsugar/postgres/password)
 ) else if "%RUN_DB%"=="true" if "%RUN_FRONTEND%"=="true" (
-  REM Database + Frontend mode
   echo Frontend: http://localhost:3001
-  echo Database: localhost:5432
-  echo    Database Name: bloodsugar
-  echo    Username: postgres
-  echo    Password: password
-  
+  echo Database: localhost:5432 (bloodsugar/postgres/password)
 ) else if "%RUN_DB%"=="true" (
-  REM Database only mode
-  echo Database: localhost:5432
-  echo    Database Name: bloodsugar
-  echo    Username: postgres
-  echo    Password: password
-  
+  echo Database: localhost:5432 (bloodsugar/postgres/password)
 ) else if "%RUN_BACKEND%"=="true" (
-  REM Backend only mode
   echo Backend API: http://localhost:3000/api
-  
 ) else if "%RUN_FRONTEND%"=="true" (
-  REM Frontend only mode
   echo Frontend: http://localhost:3001
 )
 

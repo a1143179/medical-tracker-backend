@@ -31,7 +31,6 @@ import {
   useMediaQuery
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   TrendingUp as TrendingUpIcon,
@@ -113,7 +112,12 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setCurrentRecord({ ...currentRecord, [name]: value });
+    // For 'level', always store as string to preserve decimals as typed
+    if (name === 'level') {
+      setCurrentRecord({ ...currentRecord, [name]: value });
+    } else {
+      setCurrentRecord({ ...currentRecord, [name]: value });
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -199,9 +203,13 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     
     setCurrentRecord({ 
       ...record, 
-      measurementTime: localDateTime
+      measurementTime: localDateTime,
+      level: record.level !== undefined && record.level !== null ? String(record.level) : ''
     });
     setOpenDialog(true);
+    if (isMobile) {
+      onMobilePageChange('edit');
+    }
   };
 
   const handleDelete = async (id) => {
@@ -254,19 +262,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     onMobilePageChange(page);
   };
 
-  const handleOpenAddRecord = () => {
-    // Update the measure time to current local time when opening add record dialog
-    const now = new Date();
-    const localDateTime = formatDateTimeForInput(now);
-    
-    setCurrentRecord({ 
-      id: null, 
-      measurementTime: localDateTime, 
-      level: '', 
-      notes: ''
-    });
-    setOpenDialog(true);
-  };
+
 
   const getBloodSugarStatus = (level) => {
     if (level < 3.9) return { label: t('low'), color: 'error' };
@@ -557,14 +553,13 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
               type="number"
               step="0.1"
               name="level"
-              value={currentRecord.level}
+              value={currentRecord.level === undefined || currentRecord.level === null ? '' : String(currentRecord.level)}
               onChange={handleInputChange}
               required
               margin="normal"
               helperText={t('enterBloodSugarReading')}
               inputProps={{
                 inputMode: 'decimal',
-                pattern: '[0-9]*',
                 autoComplete: 'off',
                 autoCorrect: 'off',
                 autoCapitalize: 'off',
@@ -594,9 +589,88 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 type="submit" 
                 variant="contained" 
                 fullWidth
-                data-testid="add-record-button"
+                data-testid="add-new-record-button"
               >
                 {t('addRecordButton')}
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
+      </Box>
+    </Box>
+  );
+
+  // Mobile Edit Record Content (reuse add form, but with different button text)
+  const MobileEditRecord = () => (
+    <Box sx={{ p: 0 }}>
+      <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb: 2, px: 1 }}>
+        {t('editRecord')}
+      </Typography>
+      <Box sx={{ px: 1 }}>
+        <Paper elevation={3} sx={{ p: 2 }}>
+          <Box component="form" onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              label={t('dateTimeLabel')}
+              type="datetime-local"
+              name="measurementTime"
+              value={currentRecord.measurementTime}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              InputLabelProps={{ shrink: true }}
+              inputProps={{
+                step: 60,
+                autoComplete: 'off',
+                inputMode: 'numeric',
+                pattern: '[0-9T:-]*',
+              }}
+            />
+            <TextField
+              fullWidth
+              label={t('bloodSugarLevelLabel')}
+              type="number"
+              step="0.1"
+              name="level"
+              value={currentRecord.level === undefined || currentRecord.level === null ? '' : String(currentRecord.level)}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              helperText={t('enterBloodSugarReading')}
+              inputProps={{
+                inputMode: 'decimal',
+                autoComplete: 'off',
+                autoCorrect: 'off',
+                autoCapitalize: 'off',
+                spellCheck: 'false'
+              }}
+            />
+            <TextField
+              fullWidth
+              label={t('notesLabel')}
+              name="notes"
+              value={currentRecord.notes}
+              onChange={handleInputChange}
+              margin="normal"
+              multiline
+              rows={3}
+              helperText={t('optionalNotes')}
+            />
+            <Box sx={{ mt: 2, display: 'flex', gap: 1.5 }}>
+              <Button 
+                variant="outlined" 
+                fullWidth
+                onClick={() => onMobilePageChange('dashboard')}
+              >
+                {t('cancel')}
+              </Button>
+              <Button 
+                type="submit" 
+                variant="contained" 
+                fullWidth
+                data-testid="edit-record-button"
+              >
+                {t('saveChanges')}
               </Button>
             </Box>
           </Box>
@@ -636,6 +710,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
             {mobilePage === 'dashboard' && <MobileDashboard />}
             {mobilePage === 'analytics' && <MobileAnalytics />}
             {mobilePage === 'add' && <MobileAddRecord />}
+            {mobilePage === 'edit' && <MobileEditRecord />}
           </Container>
         ) : (
           // Desktop Layout
@@ -704,7 +779,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                     <Tabs value={activeTab} onChange={handleTabChange} aria-label="blood sugar data tabs" size="small">
                       <Tab label={t('records')} />
                       <Tab label={t('analytics')} />
-                      <Tab label={t('addRecord')} />
+                      <Tab label={t('addRecord')} data-testid="add-new-record-tab" />
                     </Tabs>
                   </Box>
                   
@@ -879,77 +954,71 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
 
                   {/* Tab Panel 2: Add Record */}
                   {activeTab === 2 && (
-                    <Box sx={{ p: 2, width: '100%' }}>
-                      <Paper elevation={3} sx={{ p: 3, maxWidth: 600, mx: 'auto' }}>
-                        <Typography variant="h6" component="h2" gutterBottom>
-                          {t('addNewBloodSugarRecord')}
-                        </Typography>
-                        <Box component="form" onSubmit={handleSubmit}>
-                          <TextField
-                            fullWidth
-                            label={t('dateTimeLabel')}
-                            type="datetime-local"
-                            name="measurementTime"
-                            value={currentRecord.measurementTime}
-                            onChange={handleInputChange}
-                            required
-                            margin="normal"
-                            InputLabelProps={{ shrink: true }}
-                            inputProps={{
-                              step: 60, // 1 minute steps
-                              autoComplete: 'off',
-                              inputMode: 'numeric',
-                              pattern: '[0-9T:-]*',
-                            }}
-                          />
-                          <TextField
-                            fullWidth
-                            label={t('bloodSugarLevelLabel')}
-                            type="number"
-                            step="0.1"
-                            name="level"
-                            value={currentRecord.level}
-                            onChange={handleInputChange}
-                            required
-                            margin="normal"
-                            helperText={t('enterBloodSugarReading')}
-                            inputProps={{
-                              inputMode: 'decimal',
-                              pattern: '[0-9]*',
-                              autoComplete: 'off',
-                              autoCorrect: 'off',
-                              autoCapitalize: 'off',
-                              spellCheck: 'false'
-                            }}
-                          />
-                          <TextField
-                            fullWidth
-                            label={t('notesLabel')}
-                            name="notes"
-                            value={currentRecord.notes}
-                            onChange={handleInputChange}
-                            margin="normal"
-                            multiline
-                            rows={3}
-                            helperText={t('optionalNotes')}
-                          />
-                          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-                            <Button 
-                              variant="outlined" 
-                              onClick={() => setActiveTab(0)}
-                            >
-                              {t('cancel')}
-                            </Button>
-                            <Button 
-                              type="submit" 
-                              variant="contained"
-                              data-testid="add-record-button"
-                            >
-                              {t('addRecordButton')}
-                            </Button>
-                          </Box>
+                    <Box sx={{ p: 2, pr: 4, pl: 4, width: '100%' }}>
+                      <Box component="form" onSubmit={handleSubmit}>
+                        <TextField
+                          fullWidth
+                          label={t('dateTimeLabel')}
+                          type="datetime-local"
+                          name="measurementTime"
+                          value={currentRecord.measurementTime}
+                          onChange={handleInputChange}
+                          required
+                          margin="normal"
+                          InputLabelProps={{ shrink: true }}
+                          inputProps={{
+                            step: 60, // 1 minute steps
+                            autoComplete: 'off',
+                            inputMode: 'numeric',
+                            pattern: '[0-9T:-]*',
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          label={t('bloodSugarLevelLabel')}
+                          type="number"
+                          step="0.1"
+                          name="level"
+                          value={currentRecord.level === undefined || currentRecord.level === null ? '' : String(currentRecord.level)}
+                          onChange={handleInputChange}
+                          required
+                          margin="normal"
+                          helperText={t('enterBloodSugarReading')}
+                          inputProps={{
+                            inputMode: 'decimal',
+                            autoComplete: 'off',
+                            autoCorrect: 'off',
+                            autoCapitalize: 'off',
+                            spellCheck: 'false'
+                          }}
+                        />
+                        <TextField
+                          fullWidth
+                          label={t('notesLabel')}
+                          name="notes"
+                          value={currentRecord.notes}
+                          onChange={handleInputChange}
+                          margin="normal"
+                          multiline
+                          rows={3}
+                          helperText={t('optionalNotes')}
+                        />
+                        <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                          <Button 
+                            variant="outlined" 
+                            onClick={() => setActiveTab(0)}
+                          >
+                            {t('cancel')}
+                          </Button>
+                          <Button 
+                            type="submit" 
+                            variant="contained"
+                            data-testid="add-new-record-button"
+                          >
+                            {t('addRecordButton')}
+                          </Button>
                         </Box>
-                      </Paper>
+                      </Box>
                     </Box>
                   )}
                 </Paper>
@@ -989,14 +1058,13 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
               type="number"
               step="0.1"
               name="level"
-              value={currentRecord.level}
+              value={currentRecord.level === undefined || currentRecord.level === null ? '' : String(currentRecord.level)}
               onChange={handleInputChange}
               required
               margin="normal"
               helperText={t('enterBloodSugarReading')}
               inputProps={{
                 inputMode: 'decimal',
-                pattern: '[0-9]*',
                 autoComplete: 'off',
                 autoCorrect: 'off',
                 autoCapitalize: 'off',
@@ -1018,7 +1086,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={resetForm}>{t('cancel')}</Button>
-          <Button onClick={handleSubmit} variant="contained">
+          <Button onClick={handleSubmit} variant="contained" data-testid="add-new-record-button">
             {isEditing ? t('update') : t('addRecordButton')}
           </Button>
         </DialogActions>

@@ -5,6 +5,16 @@ module.exports = defineConfig({
     baseUrl: 'http://localhost:3000',
     setupNodeEvents(on, config) {
       // implement node event listeners here
+      // Always disable GPU for Electron
+      on('before:browser:launch', (browser = {}, launchOptions) => {
+        if (browser.name === 'electron') {
+          launchOptions.args.push('--disable-gpu');
+        }
+        return launchOptions;
+      });
+      // Set DEBUG for all Cypress runs
+      process.env.DEBUG = 'cypress:*';
+      return config;
     },
     viewportWidth: 1280,
     viewportHeight: 720,

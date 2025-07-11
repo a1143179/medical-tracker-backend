@@ -3,7 +3,21 @@
 
 describe('6. Language Preference', () => {
   beforeEach(() => {
-    // Mock authenticated user
+    // Mock Google OAuth endpoints only
+    cy.intercept('GET', 'https://accounts.google.com/o/oauth2/auth', { statusCode: 200, body: {} }).as('googleAuth');
+    cy.intercept('POST', 'https://oauth2.googleapis.com/token', { statusCode: 200, body: { access_token: 'fake-access-token', id_token: 'fake-id-token' } }).as('googleToken');
+    cy.intercept('GET', 'https://www.googleapis.com/oauth2/v2/userinfo', {
+      statusCode: 200,
+      body: {
+        id: '1234567890',
+        email: 'testuser@example.com',
+        name: 'Test User',
+        verified_email: true,
+        picture: 'https://example.com/avatar.png'
+      }
+    }).as('googleUserInfo');
+
+    // Mock /api/auth/me to ensure a valid user session
     cy.intercept('GET', '/api/auth/me', {
       statusCode: 200,
       body: {
@@ -11,18 +25,26 @@ describe('6. Language Preference', () => {
         email: 'testuser@example.com',
         name: 'Test User',
         createdAt: '2024-01-01T00:00:00Z',
-        isEmailVerified: true,
         languagePreference: 'en'
       }
     }).as('getUserInfo');
 
-    cy.intercept('POST', '/api/auth/language', {
+    // Mock /api/records?userId=1 to return an empty array
+    cy.intercept('GET', '/api/records?userId=1', {
       statusCode: 200,
-      body: { message: 'Language preference updated' }
-    }).as('updateLanguage');
+      body: []
+    }).as('getRecords');
 
+    // Visit login page to set up app state
+    cy.visit('/login');
+    // Simulate OAuth callback directly
+    cy.visit('/api/auth/callback?code=fake-code&state=fake-state');
     cy.visit('/dashboard');
-    cy.ensureEnglishLanguage();
+    cy.get('[data-testid="add-new-record-tab"]').click();
+    cy.get('[data-testid="add-new-record-button"]').should('be.visible');
+
+    // Now visit dashboard for the test
+    cy.visit('/dashboard');
   });
 
   it('should change language preference to Chinese', () => {
@@ -34,7 +56,8 @@ describe('6. Language Preference', () => {
     
     // Verify language changed
     cy.get('[data-testid="language-selector"]').should('contain', '中文');
-    cy.get('[data-testid="add-record-button"]').should('contain', '添加新记录');
+    cy.get('[data-testid="add-new-record-tab"]').click();
+    cy.get('[data-testid="add-new-record-button"]').should('contain', '添加新记录');
   });
 
   it('should persist language preference after logout and login', () => {
@@ -85,20 +108,23 @@ describe('6. Language Preference', () => {
 
   it('should update UI text when language changes', () => {
     // Verify English text initially
-    cy.get('[data-testid="add-record-button"]').should('contain', 'Add New Record');
+    cy.get('[data-testid="add-new-record-tab"]').click();
+    cy.get('[data-testid="add-new-record-button"]').should('contain', 'Add New Record');
     
     // Change to Chinese
     cy.get('[data-testid="language-selector"]').click();
     cy.get('[data-value="zh"]').click();
     // Remove wait since endpoint might not exist
     // cy.wait('@updateLanguage');
-    cy.get('[data-testid="add-record-button"]').should('contain', '添加新记录');
+    cy.get('[data-testid="add-new-record-tab"]').click();
+    cy.get('[data-testid="add-new-record-button"]').should('contain', '添加新记录');
     
     // Change back to English
     cy.get('[data-testid="language-selector"]').click();
     cy.get('[data-value="en"]').click();
     // Remove wait since endpoint might not exist
     // cy.wait('@updateLanguage');
-    cy.get('[data-testid="add-record-button"]').should('contain', 'Add New Record');
+    cy.get('[data-testid="add-new-record-tab"]').click();
+    cy.get('[data-testid="add-new-record-button"]').should('contain', 'Add New Record');
   });
 }); 

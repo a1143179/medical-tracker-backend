@@ -4,6 +4,9 @@ describe('Google OAuth Login', () => {
     // Clear all cookies before each test
     cy.clearCookies();
     
+    // Always mock /api/auth/me to resolve loading state
+    cy.intercept('GET', '/api/auth/me*', { statusCode: 401 }).as('getUserInfo');
+    
     // Mock the Google OAuth flow
     cy.intercept('GET', '/api/auth/login*', (req) => {
       // Simulate successful Google OAuth redirect
@@ -32,7 +35,6 @@ describe('Google OAuth Login', () => {
   });
 
   it('should display Google login page when not authenticated', () => {
-    cy.intercept('GET', '/api/auth/me*', { statusCode: 401 }).as('getUserInfo');
     cy.visit('/login', { failOnStatusCode: false });
     cy.wait(100); // Allow React to mount and fire the request
     cy.get('body').should('be.visible');
@@ -42,7 +44,6 @@ describe('Google OAuth Login', () => {
   });
 
   it('should redirect to Google OAuth when login button is clicked', () => {
-    cy.intercept('GET', '/api/auth/me*', { statusCode: 401 }).as('getUserInfo');
     cy.visit('/login', { failOnStatusCode: false });
     cy.wait(100);
     cy.get('[data-testid="google-signin-button"]').click();
@@ -50,6 +51,7 @@ describe('Google OAuth Login', () => {
   });
 
   it('should redirect authenticated users to dashboard', () => {
+    // Override the default 401 with a 200 for this test
     cy.intercept('GET', '/api/auth/me*', {
       statusCode: 200,
       body: {
