@@ -101,9 +101,23 @@ jobs:
         context: .
         file: ./Dockerfile
         push: true
-        tags: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+        tags: |
+          ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
-    # In the future, add steps here to start the container and run Cypress tests
+    - name: Delete old Docker images (keep last 2)
+      env:
+        DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        DOCKER_HUB_TOKEN: ${{ secrets.DOCKER_HUB_TOKEN }}
+        IMAGE_NAME: ${{ env.IMAGE_NAME }}
+        DOCKER_HUB_NAMESPACE: ${{ env.DOCKER_HUB_NAMESPACE }}
+      run: |
+        # Get all tags except latest, sort by date, and keep only the last 2
+        tags=$(curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" "https://hub.docker.com/v2/repositories/$DOCKER_HUB_NAMESPACE/$IMAGE_NAME/tags/?page_size=100" | jq -r '.results | map(select(.name != "latest")) | sort_by(.last_updated) | reverse | .[2:] | .[].name')
+        for tag in $tags; do
+          echo "Deleting tag: $tag"
+          curl -s -u "$DOCKER_HUB_USERNAME:$DOCKER_HUB_TOKEN" -X DELETE "https://hub.docker.com/v2/repositories/$DOCKER_HUB_NAMESPACE/$IMAGE_NAME/tags/$tag/"
+        done
 
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -117,7 +131,7 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          images: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:latest
+          images: ${{ env.DOCKER_HUB_NAMESPACE }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }} 
       - name: Azure Login
         uses: azure/login@v1
