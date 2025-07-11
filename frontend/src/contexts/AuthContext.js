@@ -8,12 +8,27 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     fetch('/api/auth/me', { credentials: 'include' })
-      .then(res => res.ok ? res.json() : null)
+      .then(res => {
+        if (res.status === 401) {
+          // Not logged in, handle gracefully
+          return null;
+        }
+        if (!res.ok) {
+          throw new Error('Network error');
+        }
+        return res.json();
+      })
       .then(data => {
         setUser(data || null);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(err => {
+        // Only log unexpected errors
+        if (err.message !== 'Network error') {
+          console.error(err);
+        }
+        setLoading(false);
+      });
   }, []);
 
   const loginWithGoogle = () => {
