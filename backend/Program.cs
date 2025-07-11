@@ -179,6 +179,16 @@ if (app.Environment.IsDevelopment())
             }
             catch
             {
+                // If the request is for a static file (e.g., favicon.ico, .well-known/*), return 404
+                var path = context.Request.Path.Value ?? "";
+                if (path.StartsWith("/.well-known/") || path.EndsWith(".ico") || path.Contains(".") )
+                {
+                    context.Response.StatusCode = 404;
+                    context.Response.ContentType = "text/plain";
+                    await context.Response.WriteAsync($"Not found: {path}");
+                    return;
+                }
+                // Otherwise, return 500 for root or unknown errors
                 context.Response.StatusCode = 500;
                 context.Response.ContentType = "text/plain";
                 await context.Response.WriteAsync("Frontend dev server is not running and fallback failed.");
