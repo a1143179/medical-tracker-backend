@@ -124,14 +124,11 @@ describe('Mobile Analytics Navigation', () => {
     cy.get('input[name="level"]').type('7.5');
     cy.get('textarea[name="notes"]').type('Test record for analytics');
     cy.get('form').submit();
-    
     // Wait for form submission to complete and check for success message
     cy.get('[data-testid="success-message"]').should('exist').and('be.visible');
-    
     // Navigate to analytics page
     cy.get('[aria-label="menu"]').click();
     cy.contains('Analytics').click();
-    
     // Verify charts are displayed
     cy.get('.recharts-wrapper').should('be.visible');
     cy.contains('Blood Sugar Trends').should('be.visible');

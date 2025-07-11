@@ -58,9 +58,6 @@ const API_URL = '/api/records';
 function Dashboard({ mobilePage, onMobilePageChange }) {
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [message, setMessage] = useState('');
-  const [messageType, setMessageType] = useState('info'); // 'info', 'success', 'warning', 'error'
-
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   
@@ -80,19 +77,18 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     level: '', 
     notes: ''
   });
+  const [openDialog, setOpenDialog] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [activeTab, setActiveTab] = useState(0);
-
-  const showMessage = (msg, type = 'info') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => {
-      setMessage('');
-      setMessageType('info');
-    }, 5000); // Hide message after 5 seconds
-  };
-
+    const [message, setMessage] = useState({ text: '', severity: 'info', show: false });
+  
+  const showMessage = useCallback((text, severity = 'info') => {
+    setMessage({ text, severity, show: true });
+    // Auto-hide after 6 seconds
+    setTimeout(() => setMessage(prev => ({ ...prev, show: false })), 6000);
+  }, []);
+  
   const fetchRecords = useCallback(async () => {
     try {
       const userId = user?.id;
@@ -107,7 +103,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     } catch (error) {
       showMessage(t('failedToFetchRecords'), 'error');
     }
-  }, [user?.id, t]);
+  }, [user?.id, t, showMessage]);
 
   useEffect(() => {
     if (user?.id) {
@@ -178,10 +174,16 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
         }
         
         showMessage(t('recordAddedSuccessfully'), 'success');
-        console.log('[Dashboard] Record added successfully, Snackbar should show.');
       }
       resetForm();
       fetchRecords();
+      
+      // Redirect to records tab after adding record (desktop) or dashboard (mobile)
+      if (isMobile && !isEditing) {
+        onMobilePageChange('dashboard');
+      } else if (!isEditing) {
+        setActiveTab(0); // Go to records tab
+      }
     } catch (error) {
       console.error('Error submitting record:', error);
       showMessage(t('failedToSaveRecord'), 'error');
@@ -199,8 +201,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
       ...record, 
       measurementTime: localDateTime
     });
-    // Switch to Add Record tab for editing
-    setActiveTab(2);
+    setOpenDialog(true);
   };
 
   const handleDelete = async (id) => {
@@ -233,6 +234,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
       level: '', 
       notes: ''
     });
+    setOpenDialog(false);
   };
 
   const handleChangePage = (event, newPage) => {
@@ -252,7 +254,19 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     onMobilePageChange(page);
   };
 
-
+  const handleOpenAddRecord = () => {
+    // Update the measure time to current local time when opening add record dialog
+    const now = new Date();
+    const localDateTime = formatDateTimeForInput(now);
+    
+    setCurrentRecord({ 
+      id: null, 
+      measurementTime: localDateTime, 
+      level: '', 
+      notes: ''
+    });
+    setOpenDialog(true);
+  };
 
   const getBloodSugarStatus = (level) => {
     if (level < 3.9) return { label: t('low'), color: 'error' };
@@ -597,23 +611,15 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
       {/* Spacer for fixed header on mobile */}
       <Box sx={{ height: 64, display: { xs: 'block', md: 'none' } }} />
       
-      {/* Message Section */}
-      {message && (
-        <Box sx={{ 
-          position: 'fixed', 
-          top: 64, 
-          left: 0, 
-          right: 0, 
-          zIndex: 1000,
-          px: 2,
-          py: 1
-        }}>
+      {/* Message Display Section */}
+      {message.show && (
+        <Box sx={{ px: 2, py: 1 }}>
           <Alert 
-            severity={messageType} 
-            onClose={() => setMessage('')}
-            data-testid={messageType === 'success' ? 'success-message' : 'error-message'}
+            severity={message.severity}
+            onClose={() => setMessage(prev => ({ ...prev, show: false }))}
+            data-testid={message.severity === 'success' ? 'success-message' : 'error-message'}
           >
-            {message}
+            {message.text}
           </Alert>
         </Box>
       )}
@@ -622,8 +628,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
       <Box sx={{ 
         flexGrow: 1, 
         display: 'flex',
-        flexDirection: 'column',
-        mt: message ? 8 : 0
+        flexDirection: 'column'
       }}>
         {isMobile ? (
           // Mobile Layout
@@ -875,9 +880,9 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                   {/* Tab Panel 2: Add Record */}
                   {activeTab === 2 && (
                     <Box sx={{ p: 2, width: '100%' }}>
-                      <Paper elevation={3} sx={{ p: 2 }}>
-                        <Typography variant="h6" gutterBottom>
-                          {isEditing ? t('editBloodSugarRecord') : t('addNewBloodSugarRecord')}
+                      <Paper elevation={3} sx={{ p: 3, maxWidth: 600, mx: 'auto' }}>
+                        <Typography variant="h6" component="h2" gutterBottom>
+                          {t('addNewBloodSugarRecord')}
                         </Typography>
                         <Box component="form" onSubmit={handleSubmit}>
                           <TextField
@@ -928,23 +933,21 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                             rows={3}
                             helperText={t('optionalNotes')}
                           />
-                                                      <Box sx={{ mt: 2, display: 'flex', gap: 1.5 }}>
-                              <Button 
-                                variant="outlined" 
-                                fullWidth
-                                onClick={resetForm}
-                              >
-                                {t('cancel')}
-                              </Button>
-                              <Button 
-                                type="submit" 
-                                variant="contained" 
-                                fullWidth
-                                data-testid="add-record-button"
-                              >
-                                {isEditing ? t('update') : t('addRecordButton')}
-                              </Button>
-                            </Box>
+                          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
+                            <Button 
+                              variant="outlined" 
+                              onClick={() => setActiveTab(0)}
+                            >
+                              {t('cancel')}
+                            </Button>
+                            <Button 
+                              type="submit" 
+                              variant="contained"
+                              data-testid="add-record-button"
+                            >
+                              {t('addRecordButton')}
+                            </Button>
+                          </Box>
                         </Box>
                       </Paper>
                     </Box>
@@ -956,8 +959,70 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
         )}
       </Box>
 
-
-
+      {/* Add Record Dialog */}
+      <Dialog open={openDialog} onClose={resetForm} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {isEditing ? t('editBloodSugarRecord') : t('addNewBloodSugarRecord')}
+        </DialogTitle>
+        <DialogContent>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 2 }}>
+            <TextField
+              fullWidth
+              label={t('dateTimeLabel')}
+              type="datetime-local"
+              name="measurementTime"
+              value={currentRecord.measurementTime}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              InputLabelProps={{ shrink: true }}
+              inputProps={{
+                step: 60, // 1 minute steps
+                autoComplete: 'off',
+                inputMode: 'numeric',
+                pattern: '[0-9T:-]*',
+              }}
+            />
+            <TextField
+              fullWidth
+              label={t('bloodSugarLevelLabel')}
+              type="number"
+              step="0.1"
+              name="level"
+              value={currentRecord.level}
+              onChange={handleInputChange}
+              required
+              margin="normal"
+              helperText={t('enterBloodSugarReading')}
+              inputProps={{
+                inputMode: 'decimal',
+                pattern: '[0-9]*',
+                autoComplete: 'off',
+                autoCorrect: 'off',
+                autoCapitalize: 'off',
+                spellCheck: 'false'
+              }}
+            />
+            <TextField
+              fullWidth
+              label={t('notesLabel')}
+              name="notes"
+              value={currentRecord.notes}
+              onChange={handleInputChange}
+              margin="normal"
+              multiline
+              rows={3}
+              helperText={t('optionalNotes')}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={resetForm}>{t('cancel')}</Button>
+          <Button onClick={handleSubmit} variant="contained">
+            {isEditing ? t('update') : t('addRecordButton')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
     </Box>
   );

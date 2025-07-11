@@ -15,6 +15,7 @@ using Microsoft.AspNetCore.Http.Extensions;
 using System.IO;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using System.Net.Http;
 
 // Add file logging with Serilog
 Directory.CreateDirectory("logs");
@@ -122,6 +123,63 @@ app.UseForwardedHeaders(new ForwardedHeadersOptions
 
 // Add Serilog request logging for full integration with ASP.NET Core
 app.UseSerilogRequestLogging();
+
+// Development proxy middleware
+if (app.Environment.IsDevelopment())
+{
+    app.Use(async (context, next) =>
+    {
+        // Only proxy requests that are not API calls and not static files
+        if (!context.Request.Path.StartsWithSegments("/api") && 
+            !context.Request.Path.StartsWithSegments("/_framework") &&
+            !context.Request.Path.StartsWithSegments("/static") &&
+            !context.Request.Path.StartsWithSegments("/favicon.ico") &&
+            !context.Request.Path.StartsWithSegments("/logo") &&
+            !context.Request.Path.StartsWithSegments("/manifest.json") &&
+            !context.Request.Path.StartsWithSegments("/robots.txt"))
+        {
+            try
+            {
+                using var httpClient = new HttpClient();
+                var reactDevServerUrl = "http://localhost:3001";
+                var targetUrl = $"{reactDevServerUrl}{context.Request.Path}{context.Request.QueryString}";
+                
+                app.Logger.LogInformation($"[DEV PROXY] Proxying {context.Request.Path} to {targetUrl}");
+                
+                // Forward the request to React dev server
+                var response = await httpClient.GetAsync(targetUrl);
+                var content = await response.Content.ReadAsStringAsync();
+                
+                // Set response headers
+                context.Response.StatusCode = (int)response.StatusCode;
+                context.Response.ContentType = response.Content.Headers.ContentType?.ToString() ?? "text/html";
+                
+                // Forward important headers
+                if (response.Headers.Contains("Cache-Control"))
+                {
+                    context.Response.Headers["Cache-Control"] = new Microsoft.Extensions.Primitives.StringValues(response.Headers.GetValues("Cache-Control").ToArray());
+                }
+                
+                await context.Response.WriteAsync(content);
+                return;
+            }
+            catch (Exception ex)
+            {
+                app.Logger.LogError(ex, "[DEV PROXY] Failed to proxy request to React dev server");
+                // For React Router, always serve index.html for non-API routes
+                var indexPath = Path.Combine(app.Environment.WebRootPath, "index.html");
+                if (File.Exists(indexPath))
+                {
+                    context.Response.ContentType = "text/html";
+                    await context.Response.SendFileAsync(indexPath);
+                    return;
+                }
+            }
+        }
+        
+        await next();
+    });
+}
 
 // Configure static files to serve from frontend build directory
 app.UseStaticFiles(); // Serve from wwwroot by default
@@ -509,7 +567,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 // Ensure the app listens on the correct port for Azure
-var port = Environment.GetEnvironmentVariable("PORT") ?? "3000";
+var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
 app.Urls.Clear();
 app.Urls.Add($"http://0.0.0.0:{port}");
 

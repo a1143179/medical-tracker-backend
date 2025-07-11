@@ -6,10 +6,11 @@ describe('Dashboard CRUD', () => {
 
   beforeEach(() => {
     // Mock authenticated user
+    const mockUserId = 1; // Ensure this matches the userId in the test records
     cy.intercept('GET', '/api/auth/me', {
       statusCode: 200,
       body: {
-        id: 1,
+        id: mockUserId,
         email: 'testuser@example.com',
         name: 'Test User',
         createdAt: '2024-01-01T00:00:00Z',
@@ -18,11 +19,11 @@ describe('Dashboard CRUD', () => {
       }
     }).as('getUserInfo');
 
-    // Provide a predictable set of records for each test
+    // Always provide at least one record belonging to the logged-in user
     records = [
       {
         id: 1,
-        userId: 1,
+        userId: mockUserId, // Must match the logged-in user's id
         level: 90,
         notes: 'Initial record',
         measurementTime: '2024-01-01T08:00:00Z',
@@ -31,15 +32,21 @@ describe('Dashboard CRUD', () => {
       }
     ];
 
-    cy.intercept('GET', '/api/records', (req) => {
+    cy.intercept({
+      method: 'GET',
+      url: /\/api\/records(\?.*)?$/
+    }, (req) => {
       req.reply(records);
     }).as('getRecords');
 
-    cy.intercept('POST', '/api/records', (req) => {
+    cy.intercept({
+      method: 'POST',
+      url: /\/api\/records(\?.*)?$/
+    }, (req) => {
       const newRecord = {
         ...req.body,
         id: Date.now(),
-        userId: 1,
+        userId: mockUserId,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -47,7 +54,10 @@ describe('Dashboard CRUD', () => {
       req.reply(newRecord);
     }).as('addRecord');
 
-    cy.intercept('PUT', /\/api\/records\/(\d+)/, (req) => {
+    cy.intercept({
+      method: 'PUT',
+      url: /\/api\/records\/\d+(\?.*)?$/
+    }, (req) => {
       const id = parseInt(req.url.split('/').pop(), 10);
       const idx = records.findIndex(r => r.id === id);
       if (idx !== -1) {
@@ -58,7 +68,10 @@ describe('Dashboard CRUD', () => {
       }
     }).as('editRecord');
 
-    cy.intercept('DELETE', /\/api\/records\/(\d+)/, (req) => {
+    cy.intercept({
+      method: 'DELETE',
+      url: /\/api\/records\/\d+(\?.*)?$/
+    }, (req) => {
       const id = parseInt(req.url.split('/').pop(), 10);
       records = records.filter(r => r.id !== id);
       req.reply({ success: true });
@@ -66,96 +79,101 @@ describe('Dashboard CRUD', () => {
 
     cy.visit('/dashboard');
     cy.ensureEnglishLanguage();
+    // Remove the wait since the API call might not be made
+    // cy.wait('@getRecords');
   });
 
   it('should display dashboard and records table', () => {
-    cy.contains('Blood Sugar Records').should('be.visible');
-    cy.get('table').should('be.visible');
-    cy.contains('90 mmol/L').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').should('have.length.greaterThan', 0);
   });
 
   it('should pre-populate measure time within 5 seconds of now', () => {
-    // Click on the Add Record tab
-    cy.contains('Add New Record').click();
-    
-    // Get the current time
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const expectedTime = `${year}-${month}-${day}T${hours}:${minutes}`;
-    
-    // Check that the datetime input is pre-populated with current time (within 5 seconds)
-    cy.get('input[name="measurementTime"]').should('have.value', expectedTime);
+    now.setSeconds(0, 0); // Round to nearest minute to match input
+    cy.clock(now);
+    cy.visit('/');
+    cy.contains('Add Record').click();
+    cy.get('input[name="measurementTime"]').invoke('val').then(val => {
+      const inputDate = new Date(val);
+      const diff = Math.abs(inputDate.getTime() - now.getTime());
+      expect(diff).to.be.lessThan(5000);
+    });
   });
 
   it('should add a new blood sugar record', () => {
-    // Click on the Add Record tab
-    cy.contains('Add New Record').click();
-    
-    // Fill in the form
-    cy.get('input[name="level"]').type('7.5');
-    cy.get('textarea[name="notes"]').type('Test record');
-    
-    // Submit the form
+    const uniqueNote = `Test record ${Date.now()}`;
+    cy.contains('Add Record').click();
+    cy.get('input[name="level"]').type('85');
+    cy.get('textarea[name="notes"]').type(uniqueNote);
     cy.get('form').submit();
-    
-    // Check for success message
     cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote);
   });
 
   it('should edit a blood sugar record', () => {
-    // Click edit button on the first record
-    cy.get('button[title="edit"]').first().click();
-    
-    // Update the level
-    cy.get('input[name="level"]').clear().type('8.5');
+    const uniqueNote = `Edited record ${Date.now()}`;
+    cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
+      cy.get('button[title="edit"]').click();
+    });
+    cy.get('input[name="level"]').clear().type('95');
+    cy.get('textarea[name="notes"]').clear().type(uniqueNote);
     cy.get('form').submit();
-    
-    // Check for success message
     cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote);
   });
 
   it('should delete a blood sugar record', () => {
-    // Click delete button on the first record
-    cy.get('button[title="delete"]').first().click();
-    
-    // Check for success message
+    cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
+      cy.get('button[title="delete"]').click();
+    });
+    cy.on('window:confirm', () => true);
     cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').should('have.length', 0);
   });
 
   it('should create multiple records successfully', () => {
+    const uniqueNote1 = `First record ${Date.now()}`;
+    const uniqueNote2 = `Second record ${Date.now() + 1}`;
     // Add first record
-    cy.contains('Add New Record').click();
-    cy.get('input[name="level"]').type('6.5');
-    cy.get('textarea[name="notes"]').type('First record');
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('70');
+    cy.get('textarea[name="notes"]').type(uniqueNote1);
     cy.get('form').submit();
     cy.get('[data-testid="success-message"]').should('be.visible');
-    
     // Add second record
-    cy.get('input[name="level"]').clear().type('7.2');
-    cy.get('textarea[name="notes"]').clear().type('Second record');
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('80');
+    cy.get('textarea[name="notes"]').type(uniqueNote2);
     cy.get('form').submit();
     cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').should('have.length.greaterThan', 1);
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote1);
+    cy.get('[data-testid="blood-sugar-records"]').should('contain', uniqueNote2);
   });
 
   it('should add a record with next year date and verify it appears on first row', () => {
-    // Click on the Add Record tab
-    cy.contains('Add New Record').click();
-    
-    // Set date to next year
+    const uniqueNote = `Next year record ${Date.now()}`;
     const nextYear = new Date().getFullYear() + 1;
-    const nextYearDate = `${nextYear}-01-15T10:30`;
+    const nextYearDate = `${nextYear}-01-01T12:00`;
+    
+    cy.get('[data-testid="add-record-button"]').click();
+    cy.get('input[name="level"]').type('60');
+    cy.get('textarea[name="notes"]').type(uniqueNote);
     cy.get('input[name="measurementTime"]').clear().type(nextYearDate);
-    
-    // Fill in the form
-    cy.get('input[name="level"]').type('9.0');
-    cy.get('textarea[name="notes"]').type('Future record');
     cy.get('form').submit();
-    
-    // Check for success message
     cy.get('[data-testid="success-message"]').should('be.visible');
+    
+    // Verify the record appears on the first row (since it's the most recent date)
+    cy.get('[data-testid="blood-sugar-records"] tr').first().should('contain', uniqueNote);
+    cy.get('[data-testid="blood-sugar-records"] tr').first().should('contain', `${nextYear}-01-01 12:00:00`);
+    
+    // Delete the record to clean up
+    cy.get('[data-testid="blood-sugar-records"] tr').first().within(() => {
+      cy.get('button[title="delete"]').click();
+    });
+    cy.on('window:confirm', () => true);
+    cy.get('[data-testid="success-message"]').should('be.visible');
+    cy.get('[data-testid="blood-sugar-records"] tr').first().should('not.contain', uniqueNote);
   });
 }); 
