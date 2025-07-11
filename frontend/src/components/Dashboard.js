@@ -550,8 +550,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
             <TextField
               fullWidth
               label={t('bloodSugarLevelLabel')}
-              type="number"
-              step="0.1"
+              type="text"
               name="level"
               value={currentRecord.level === undefined || currentRecord.level === null ? '' : String(currentRecord.level)}
               onChange={handleInputChange}
@@ -563,7 +562,8 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 autoComplete: 'off',
                 autoCorrect: 'off',
                 autoCapitalize: 'off',
-                spellCheck: 'false'
+                spellCheck: 'false',
+                pattern: '[0-9]*[.,]?[0-9]*'
               }}
             />
             <TextField
@@ -629,8 +629,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
             <TextField
               fullWidth
               label={t('bloodSugarLevelLabel')}
-              type="number"
-              step="0.1"
+              type="text"
               name="level"
               value={currentRecord.level === undefined || currentRecord.level === null ? '' : String(currentRecord.level)}
               onChange={handleInputChange}
@@ -642,7 +641,8 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
                 autoComplete: 'off',
                 autoCorrect: 'off',
                 autoCapitalize: 'off',
-                spellCheck: 'false'
+                spellCheck: 'false',
+                pattern: '[0-9]*[.,]?[0-9]*'
               }}
             />
             <TextField

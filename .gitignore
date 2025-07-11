@@ -12,3 +12,7 @@ backend/wwwroot/
 # Ignore development settings with secrets
 backend/appsettings.Development.json
 
+# Ignore test project build artifacts
+TestMinimal/obj/
+TestMinimal/bin/
+

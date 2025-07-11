@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import GoogleIcon from '@mui/icons-material/Google';
-import { Box, Grid, Paper, Typography, Button, useTheme, useMediaQuery, Divider, Stack, Avatar, CircularProgress } from '@mui/material';
+import { Box, Grid, Paper, Typography, Button, useTheme, useMediaQuery, Divider, Stack, Avatar, CircularProgress, Checkbox, FormControlLabel } from '@mui/material';
 
 const GoogleLogin = () => {
   const { loginWithGoogle } = useAuth();
@@ -12,14 +12,15 @@ const GoogleLogin = () => {
   const isTestMobile = typeof window !== 'undefined' && window.Cypress && window.localStorage.getItem('forceMobile') === 'true';
   const isMobile = useMediaQuery(theme.breakpoints.down('md')) || isTestMobile;
   const [loading, setLoading] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   const handleLogin = async (e) => {
     setLoading(true);
     try {
       if (typeof window !== 'undefined' && window.Cypress && window.loginWithGoogleTest) {
-        await window.loginWithGoogleTest(e);
+        await window.loginWithGoogleTest(e, rememberMe);
       } else {
-        await loginWithGoogle(e);
+        await loginWithGoogle(e, rememberMe);
       }
     } finally {
       setLoading(false);
@@ -129,6 +130,18 @@ const GoogleLogin = () => {
             >
               {t('signInWithGoogle')}
             </Button>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={rememberMe}
+                  onChange={e => setRememberMe(e.target.checked)}
+                  color="primary"
+                  inputProps={{ 'data-testid': 'remember-me-checkbox' }}
+                />
+              }
+              label={t('rememberMe')}
+              sx={{ mb: 1, userSelect: 'none' }}
+            />
             {/* Make secure auth text plain */}
             <Box sx={{ mt: 1 }}>
               <Typography variant="caption" color="primary.main">
