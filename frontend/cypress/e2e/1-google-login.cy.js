@@ -90,4 +90,22 @@ describe('Google OAuth Login', () => {
     cy.wait(100);
     cy.url().should('include', '/');
   });
+
+  it('should show spinner and block background on mobile when login is clicked', () => {
+    cy.visit('/login', {
+      onBeforeLoad(win) {
+        win.localStorage.setItem('forceMobile', 'true');
+        win.loginWithGoogleTest = () => new Promise(resolve => setTimeout(resolve, 1000));
+      },
+      failOnStatusCode: false
+    });
+    cy.wait(100);
+    cy.get('[data-testid="google-signin-button"]').should('be.visible');
+    cy.get('[data-testid="google-signin-button"]').click();
+    cy.wait(200);
+    cy.get('.MuiCircularProgress-root').should('be.visible');
+    cy.get('[data-testid="login-overlay"]').should('be.visible').and($overlay => {
+      expect($overlay).to.have.css('pointer-events').match(/all|auto/);
+    });
+  });
 }); 

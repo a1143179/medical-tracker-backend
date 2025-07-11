@@ -9,15 +9,20 @@ const GoogleLogin = () => {
   const { loginWithGoogle } = useAuth();
   const { t } = useLanguage();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isTestMobile = typeof window !== 'undefined' && window.Cypress && window.localStorage.getItem('forceMobile') === 'true';
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')) || isTestMobile;
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e) => {
     setLoading(true);
     try {
-      await loginWithGoogle(e);
+      if (typeof window !== 'undefined' && window.Cypress && window.loginWithGoogleTest) {
+        await window.loginWithGoogleTest(e);
+      } else {
+        await loginWithGoogle(e);
+      }
     } finally {
-      setLoading(false); // In case loginWithGoogle does not redirect or fails
+      setLoading(false);
     }
   };
 
@@ -35,6 +40,7 @@ const GoogleLogin = () => {
     >
       {isMobile && loading && (
         <Box
+          data-testid="login-overlay"
           sx={{
             position: 'absolute',
             top: 0,
