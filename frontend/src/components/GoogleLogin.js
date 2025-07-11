@@ -33,8 +33,8 @@ const GoogleLogin = () => {
         position: 'relative',
       }}
     >
-      {/* Dimmer and spinner for mobile login loading */}
-      {isMobile && loading && (
+      {/* Dimmer and spinner for login loading (all screen sizes) */}
+      {loading && (
         <Box
           sx={{
             position: 'absolute',
@@ -47,6 +47,7 @@ const GoogleLogin = () => {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
+            pointerEvents: 'all', // Block all interaction
           }}
         >
           <CircularProgress color="primary" size={64} thickness={5} />
