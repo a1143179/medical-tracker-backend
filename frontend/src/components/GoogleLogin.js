@@ -54,7 +54,7 @@ const GoogleLogin = () => {
         </Stack>
         <Divider sx={{ width: { xs: '90%', sm: '80%' }, mb: 3 }} />
         <Grid container spacing={4} sx={{ width: '100%' }} direction={isMobile ? 'column' : 'row'}>
-          <Grid item xs={12} md={6} order={isMobile ? 2 : 1}>
+          <Grid order={isMobile ? 2 : 1}>
             <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'block', md: 'block' } }}>
               {t('whatYoullGet')}
             </Typography>
@@ -73,7 +73,7 @@ const GoogleLogin = () => {
               </Stack>
             </Stack>
           </Grid>
-          <Grid item xs={12} md={6} order={isMobile ? 1 : 2}>
+          <Grid order={isMobile ? 1 : 2}>
             <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'none', md: 'block' } }}>
               {t('welcomeBack')}
             </Typography>
