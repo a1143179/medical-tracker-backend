@@ -33,8 +33,7 @@ const GoogleLogin = () => {
         position: 'relative',
       }}
     >
-      {/* Dimmer and spinner for login loading (all screen sizes) */}
-      {loading && (
+      {isMobile && loading && (
         <Box
           sx={{
             position: 'absolute',
