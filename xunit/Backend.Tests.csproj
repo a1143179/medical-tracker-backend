@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../backend/backend-new.csproj" />
+    <ProjectReference Include="../backend/backend.csproj" />
   </ItemGroup>
 
 </Project>
