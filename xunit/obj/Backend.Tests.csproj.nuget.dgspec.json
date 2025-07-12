@@ -4,12 +4,12 @@
     "D:\\workspace\\bloodsugerhistory\\xunit\\Backend.Tests.csproj": {}
   },
   "projects": {
-    "D:\\workspace\\bloodsugerhistory\\backend\\backend-new.csproj": {
+    "D:\\workspace\\bloodsugerhistory\\backend\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\workspace\\bloodsugerhistory\\backend\\backend-new.csproj",
-        "projectName": "backend-new",
-        "projectPath": "D:\\workspace\\bloodsugerhistory\\backend\\backend-new.csproj",
+        "projectUniqueName": "D:\\workspace\\bloodsugerhistory\\backend\\backend.csproj",
+        "projectName": "backend",
+        "projectPath": "D:\\workspace\\bloodsugerhistory\\backend\\backend.csproj",
         "packagesPath": "C:\\Users\\weiwa\\.nuget\\packages\\",
         "outputPath": "D:\\workspace\\bloodsugerhistory\\backend\\obj\\",
         "projectStyle": "PackageReference",
@@ -124,8 +124,8 @@
           "net9.0": {
             "targetAlias": "net9.0",
             "projectReferences": {
-              "D:\\workspace\\bloodsugerhistory\\backend\\backend-new.csproj": {
-                "projectPath": "D:\\workspace\\bloodsugerhistory\\backend\\backend-new.csproj"
+              "D:\\workspace\\bloodsugerhistory\\backend\\backend.csproj": {
+                "projectPath": "D:\\workspace\\bloodsugerhistory\\backend\\backend.csproj"
               }
             }
           }

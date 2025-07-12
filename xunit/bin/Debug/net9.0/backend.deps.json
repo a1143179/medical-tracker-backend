@@ -6,7 +6,7 @@
   "compilationOptions": {},
   "targets": {
     ".NETCoreApp,Version=v9.0": {
-      "backend-new/1.0.0": {
+      "backend/1.0.0": {
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.Google": "9.0.6",
           "Microsoft.AspNetCore.OpenApi": "9.0.6",
@@ -18,7 +18,7 @@
           "Swashbuckle.AspNetCore": "9.0.1"
         },
         "runtime": {
-          "backend-new.dll": {}
+          "backend.dll": {}
         }
       },
       "Humanizer.Core/2.14.1": {
@@ -832,7 +832,7 @@
     }
   },
   "libraries": {
-    "backend-new/1.0.0": {
+    "backend/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

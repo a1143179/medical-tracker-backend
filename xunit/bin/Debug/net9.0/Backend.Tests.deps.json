@@ -10,7 +10,7 @@
         "dependencies": {
           "Microsoft.NET.Test.Sdk": "17.12.0",
           "Moq": "4.20.72",
-          "backend-new": "1.0.0",
+          "backend": "1.0.0",
           "coverlet.collector": "6.0.2",
           "xunit": "2.9.2",
           "xunit.runner.visualstudio": "2.8.2"
@@ -762,7 +762,7 @@
         }
       },
       "xunit.runner.visualstudio/2.8.2": {},
-      "backend-new/1.0.0": {
+      "backend/1.0.0": {
         "dependencies": {
           "Microsoft.AspNetCore.Authentication.Google": "9.0.6",
           "Microsoft.AspNetCore.OpenApi": "9.0.6",
@@ -773,7 +773,7 @@
           "Swashbuckle.AspNetCore": "9.0.1"
         },
         "runtime": {
-          "backend-new.dll": {
+          "backend.dll": {
             "assemblyVersion": "1.0.0.0",
             "fileVersion": "1.0.0.0"
           }
@@ -1200,7 +1200,7 @@
       "path": "xunit.runner.visualstudio/2.8.2",
       "hashPath": "xunit.runner.visualstudio.2.8.2.nupkg.sha512"
     },
-    "backend-new/1.0.0": {
+    "backend/1.0.0": {
       "type": "project",
       "serviceable": false,
       "sha512": ""

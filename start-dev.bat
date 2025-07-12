@@ -61,6 +61,8 @@ if "%RUN_BACKEND%"=="true" (
 
 echo Checking ports...
 
+echo Checking ports...
+
 REM Track status for summary
 set "DB_STATUS="
 set "BACKEND_STATUS="
@@ -108,7 +110,7 @@ if "%RUN_BACKEND%"=="true" (
   )
   set "BACKEND_STATUS=STARTING"
   start "backend" cmd /c "cd backend && dotnet restore && dotnet watch run"
-  timeout /t 2 /nobreak >nul
+  timeout /t 5 /nobreak >nul
   set "BACKEND_STATUS=RUNNING (http://localhost:3000)"
   goto :backend_done
 )
@@ -125,8 +127,8 @@ if "%RUN_FRONTEND%"=="true" (
     goto :frontend_skip
   )
   set "FRONTEND_STATUS=STARTING"
-  start "frontend" cmd /c "cd frontend && npm install && set PORT=3001 && npm start"
-  timeout /t 2 /nobreak >nul
+  start "frontend" cmd /c "cd frontend && npm install && npm start"
+  timeout /t 5 /nobreak >nul
   set "FRONTEND_STATUS=RUNNING (http://localhost:3001)"
   goto :frontend_done
 )
