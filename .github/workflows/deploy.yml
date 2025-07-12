@@ -43,10 +43,10 @@ jobs:
         cache-dependency-path: frontend/package-lock.json
 
     - name: Install backend dependencies
-      run: dotnet restore ./backend/backend.csproj
+      run: dotnet restore ./backend/backend-new.csproj
 
     - name: Build backend
-      run: dotnet build ./backend/backend.csproj --configuration Debug
+      run: dotnet build ./backend/backend-new.csproj --configuration Debug
 
     - name: Run xunit tests
       run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
@@ -74,7 +74,7 @@ jobs:
       run: |
         cd backend
         dotnet tool restore
-        dotnet ef database update --no-build --project backend.csproj
+        dotnet ef database update --no-build --project backend-new.csproj
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
         ASPNETCORE_ENVIRONMENT: "Development"
