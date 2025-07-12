@@ -32,6 +32,15 @@ public class AuthController : ControllerBase
     [HttpGet("login")]
     public IActionResult Login(string returnUrl = "/")
     {
+        // Check if Google OAuth is configured
+        var googleClientId = _configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+        var googleClientSecret = _configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+        
+        if (string.IsNullOrEmpty(googleClientId) || string.IsNullOrEmpty(googleClientSecret))
+        {
+            return BadRequest(new { message = "Google OAuth is not configured. Please add Google:ClientId and Google:ClientSecret to your configuration." });
+        }
+
         var properties = new AuthenticationProperties
         {
             RedirectUri = Url.Action(nameof(Callback), "Auth", new { returnUrl }),

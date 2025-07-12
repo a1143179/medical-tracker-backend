@@ -10,17 +10,32 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Add Google OAuth authentication
-builder.Services.AddAuthentication(options =>
+var googleClientId = builder.Configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+var googleClientSecret = builder.Configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+
+if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
 {
-    options.DefaultScheme = "Cookies";
-    options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
-})
-.AddCookie("Cookies")
-.AddGoogle(options =>
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "Cookies";
+        options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+    })
+    .AddCookie("Cookies")
+    .AddGoogle(options =>
+    {
+        options.ClientId = googleClientId;
+        options.ClientSecret = googleClientSecret;
+    });
+}
+else
 {
-    options.ClientId = builder.Configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
-    options.ClientSecret = builder.Configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
-});
+    // Fallback authentication without Google OAuth
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = "Cookies";
+    })
+    .AddCookie("Cookies");
+}
 
 // Add Entity Framework - use PostgreSQL if connection string is available, otherwise in-memory
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
