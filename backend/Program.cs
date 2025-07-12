@@ -43,7 +43,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
             {
                 var request = context.HttpContext.Request;
                 var scheme = request.Scheme; // Will be "https" in production
-                var host = request.Host.Value;
+                var host = request.Host.Value ?? "localhost";
                 var redirectUri = $"{scheme}://{host}/api/auth/callback";
                 
                 // Update the redirect URI to use HTTPS in production

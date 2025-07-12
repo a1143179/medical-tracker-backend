@@ -55,7 +55,7 @@ public class AuthController : ControllerBase
         {
             var request = HttpContext.Request;
             var scheme = request.Scheme; // Will be "https" in production
-            var host = request.Host.Value;
+            var host = request.Host.Value ?? "localhost";
             var redirectUri = $"{scheme}://{host}/dashboard";
             properties.RedirectUri = redirectUri;
         }
@@ -66,7 +66,7 @@ public class AuthController : ControllerBase
 
 
     [HttpPost("logout")]
-    public async Task<IActionResult> Logout()
+    public IActionResult Logout()
     {
         HttpContext.Session.Clear();
         return Ok(new { message = "Logged out successfully" });
