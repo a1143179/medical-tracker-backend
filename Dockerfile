@@ -1,8 +1,10 @@
 # ---- Step 1: create React frontend ----
 FROM node:18 AS react-build
 WORKDIR /app
-COPY frontend/package.json ./
-RUN npm install
+# Copy package files first for better layer caching
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+# Copy source code
 COPY frontend/ ./
 RUN npm run build
 
