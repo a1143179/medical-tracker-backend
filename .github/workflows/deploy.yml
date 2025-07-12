@@ -67,14 +67,7 @@ jobs:
         mkdir -p backend/wwwroot
         cp -r frontend/build/* backend/wwwroot/
 
-    - name: Run database migrations
-      run: |
-        cd backend
-        dotnet tool restore
-        dotnet ef database update --no-build --project backend.csproj
-      env:
-        ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
-        ASPNETCORE_ENVIRONMENT: "Development"
+
 
     - name: Start backend
       run: |
