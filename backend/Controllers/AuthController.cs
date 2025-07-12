@@ -84,7 +84,33 @@ public class AuthController : ControllerBase
             properties.RedirectUri = redirectUri;
         }
 
-        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        _logger.LogInformation("Starting Google OAuth challenge with redirect URI: {RedirectUri}", properties.RedirectUri);
+
+        try
+        {
+            return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initiate Google OAuth challenge");
+            
+            // Return a proper HTML error page for browser requests
+            if (Request.Headers["Accept"].ToString().Contains("text/html"))
+            {
+                return Content($@"
+                    <html>
+                        <head><title>OAuth Error</title></head>
+                        <body>
+                            <h1>Google OAuth Error</h1>
+                            <p>Failed to initiate Google OAuth authentication.</p>
+                            <p>Error: {ex.Message}</p>
+                            <p><a href='/login'>Back to Login</a></p>
+                        </body>
+                    </html>", "text/html");
+            }
+            
+            return BadRequest(new { message = "Failed to initiate Google OAuth authentication", error = ex.Message });
+        }
     }
 
 
