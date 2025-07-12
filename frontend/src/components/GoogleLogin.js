@@ -90,9 +90,15 @@ const GoogleLogin = () => {
           </Box>
         </Stack>
         <Divider sx={{ width: { xs: '90%', sm: '80%' }, mb: 3 }} />
-        <Grid container spacing={4} sx={{ width: '100%' }} direction={isMobile ? 'column' : 'row'}>
-          <Grid order={isMobile ? 2 : 1}>
-            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'block', md: 'block' } }}>
+        <Grid container spacing={4} sx={{ 
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          gap: 2,
+          p: 2
+        }}>
+          <Grid item xs={12} md={6} order={isMobile ? 2 : 1}>
+            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'block', md: 'block' }, textAlign: 'center' }}>
               {t('whatYoullGet')}
             </Typography>
             <Stack spacing={2}>
@@ -110,8 +116,8 @@ const GoogleLogin = () => {
               </Stack>
             </Stack>
           </Grid>
-          <Grid order={isMobile ? 1 : 2}>
-            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'none', md: 'block' } }}>
+          <Grid item xs={12} md={6} order={isMobile ? 1 : 2}>
+            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'none', md: 'block' }, textAlign: 'center' }}>
               {t('welcomeBack')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, display: { xs: 'block', md: 'block' } }}>
@@ -120,11 +126,16 @@ const GoogleLogin = () => {
             <Button
               variant="contained"
               color="primary"
-              fullWidth
               startIcon={<GoogleIcon />}
               onClick={handleLogin}
               className="google-signin-button"
-              sx={{ py: 1.5, fontWeight: 600, fontSize: '1rem', mb: 2 }}
+              sx={{ 
+                py: 1.5, 
+                fontWeight: 600, 
+                fontSize: '1rem', 
+                mb: 2,
+                width: { xs: '100%', md: '280px' }
+              }}
               data-testid="google-signin-button"
               disabled={loading}
             >
@@ -140,7 +151,14 @@ const GoogleLogin = () => {
                 />
               }
               label={t('rememberMe')}
-              sx={{ mb: 1, userSelect: 'none' }}
+              sx={{ 
+                mb: 1, 
+                userSelect: 'none',
+                alignItems: 'flex-start',
+                '& .MuiFormControlLabel-label': {
+                  mt: 0.5
+                }
+              }}
             />
             {/* Make secure auth text plain */}
             <Box sx={{ mt: 1 }}>
