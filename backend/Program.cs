@@ -160,6 +160,7 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
     options.Cookie.MaxAge = TimeSpan.FromDays(30); // Set explicit max age
+    options.Cookie.Name = "BloodSugarSession"; // Use custom cookie name
 });
 
 var app = builder.Build();
@@ -199,13 +200,26 @@ app.Use(async (context, next) =>
     catch (System.Security.Cryptography.CryptographicException ex) when (ex.Message.Contains("key") && ex.Message.Contains("not found"))
     {
         // Clear invalid session cookies
-        context.Response.Cookies.Delete(".AspNetCore.Session");
+        context.Response.Cookies.Delete("BloodSugarSession");
         context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
         
         // Redirect to login page
         context.Response.Redirect("/login");
         return;
     }
+});
+
+// Add cookie cleanup middleware for old session cookies
+app.Use(async (context, next) =>
+{
+    // Clean up old session cookies that might cause issues
+    var oldSessionCookie = context.Request.Cookies[".AspNetCore.Session"];
+    if (!string.IsNullOrEmpty(oldSessionCookie))
+    {
+        context.Response.Cookies.Delete(".AspNetCore.Session");
+    }
+    
+    await next();
 });
 
 app.UseSession();
