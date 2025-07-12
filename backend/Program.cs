@@ -35,6 +35,23 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
         options.CallbackPath = "/api/auth/callback";
+        
+        // Configure dynamic redirect URI for production
+        if (!builder.Environment.IsDevelopment())
+        {
+            options.Events.OnRedirectToAuthorizationEndpoint = context =>
+            {
+                var request = context.HttpContext.Request;
+                var scheme = request.Scheme; // Will be "https" in production
+                var host = request.Host.Value;
+                var redirectUri = $"{scheme}://{host}/api/auth/callback";
+                
+                // Update the redirect URI to use HTTPS in production
+                context.RedirectUri = redirectUri;
+                return Task.CompletedTask;
+            };
+        }
+        
         options.Events.OnTicketReceived = async context =>
         {
             var userService = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();

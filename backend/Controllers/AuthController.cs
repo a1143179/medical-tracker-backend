@@ -50,6 +50,16 @@ public class AuthController : ControllerBase
             }
         };
 
+        // In production, ensure the redirect URI uses HTTPS
+        if (!_environment.IsDevelopment())
+        {
+            var request = HttpContext.Request;
+            var scheme = request.Scheme; // Will be "https" in production
+            var host = request.Host.Value;
+            var redirectUri = $"{scheme}://{host}/dashboard";
+            properties.RedirectUri = redirectUri;
+        }
+
         return Challenge(properties, GoogleDefaults.AuthenticationScheme);
     }
 
