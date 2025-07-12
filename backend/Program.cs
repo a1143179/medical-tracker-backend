@@ -3,6 +3,7 @@ using Backend.Data;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.AspNetCore.DataProtection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,13 @@ builder.Services.AddSwaggerGen();
 // Add Google OAuth authentication
 var googleClientId = builder.Configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
 var googleClientSecret = builder.Configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+
+// Log OAuth configuration status
+var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Google OAuth configuration - ClientId: {HasClientId}, ClientSecret: {HasClientSecret}, Environment: {Environment}", 
+    !string.IsNullOrEmpty(googleClientId), 
+    !string.IsNullOrEmpty(googleClientSecret), 
+    builder.Environment.EnvironmentName);
 
 if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
 {
@@ -114,6 +122,29 @@ else
         options.UseInMemoryDatabase("BloodSugarHistoryDb"));
 }
 
+// Configure Data Protection for production
+if (!builder.Environment.IsDevelopment())
+{
+    // In production, configure data protection to prevent key ring errors
+    // This prevents the "key not found in key ring" error
+    var keyRingPath = Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") != null 
+        ? $"/tmp/keys-{Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID")}"
+        : "/tmp/keys";
+    
+    try
+    {
+        builder.Services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath))
+            .SetApplicationName("BloodSugarHistory");
+    }
+    catch
+    {
+        // Fallback to in-memory if file system is not available
+        builder.Services.AddDataProtection()
+            .SetApplicationName("BloodSugarHistory");
+    }
+}
+
 // Add session support
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
@@ -121,6 +152,7 @@ builder.Services.AddSession(options =>
     options.IdleTimeout = TimeSpan.FromMinutes(30);
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
 });
 
 var app = builder.Build();

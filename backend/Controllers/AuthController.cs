@@ -36,8 +36,32 @@ public class AuthController : ControllerBase
         var googleClientId = _configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
         var googleClientSecret = _configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
         
+        _logger.LogInformation("Google OAuth configuration check - ClientId: {HasClientId}, ClientSecret: {HasClientSecret}, Environment: {Environment}", 
+            !string.IsNullOrEmpty(googleClientId), 
+            !string.IsNullOrEmpty(googleClientSecret), 
+            _environment.EnvironmentName);
+        
         if (string.IsNullOrEmpty(googleClientId) || string.IsNullOrEmpty(googleClientSecret))
         {
+            _logger.LogError("Google OAuth is not configured. ClientId: {HasClientId}, ClientSecret: {HasClientSecret}", 
+                !string.IsNullOrEmpty(googleClientId), 
+                !string.IsNullOrEmpty(googleClientSecret));
+            
+            // Return a proper HTML error page for browser requests
+            if (Request.Headers["Accept"].ToString().Contains("text/html"))
+            {
+                return Content(@"
+                    <html>
+                        <head><title>OAuth Configuration Error</title></head>
+                        <body>
+                            <h1>Google OAuth Not Configured</h1>
+                            <p>The application is not properly configured for Google OAuth authentication.</p>
+                            <p>Please contact the administrator to set up Google OAuth credentials.</p>
+                            <p><a href='/login'>Back to Login</a></p>
+                        </body>
+                    </html>", "text/html");
+            }
+            
             return BadRequest(new { message = "Google OAuth is not configured. Please add Google:ClientId and Google:ClientSecret to your configuration." });
         }
 
