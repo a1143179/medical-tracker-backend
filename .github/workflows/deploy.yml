@@ -48,6 +48,9 @@ jobs:
     - name: Build backend
       run: dotnet build ./backend/backend.csproj --configuration Debug
 
+    - name: Run xunit tests
+      run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
+
     - name: Run unit tests
       run: dotnet test ./backend/Tests/Backend.Tests.csproj --verbosity normal
 
