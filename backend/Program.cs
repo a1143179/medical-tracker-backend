@@ -69,7 +69,7 @@ if (app.Environment.IsDevelopment())
         try
         {
             // Forward to the actual path for static assets, or index.html for client-side routing
-            var path = context.Request.Path.Value;
+            var path = context.Request.Path.Value ?? string.Empty;
             var frontendUrl = "http://localhost:3001" + path + context.Request.QueryString;
             var frontendResponse = await httpClient.GetAsync(frontendUrl);
             
