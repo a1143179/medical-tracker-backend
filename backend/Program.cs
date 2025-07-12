@@ -144,6 +144,12 @@ if (!builder.Environment.IsDevelopment())
             .SetApplicationName("BloodSugarHistory");
     }
 }
+else
+{
+    // In development, use a consistent key ring
+    builder.Services.AddDataProtection()
+        .SetApplicationName("BloodSugarHistory");
+}
 
 // Add session support
 builder.Services.AddDistributedMemoryCache();
@@ -153,6 +159,7 @@ builder.Services.AddSession(options =>
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
     options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
+    options.Cookie.MaxAge = TimeSpan.FromDays(30); // Set explicit max age
 });
 
 var app = builder.Build();
@@ -181,6 +188,25 @@ if (!app.Environment.IsDevelopment())
     // Fallback to index.html for client-side routing
     app.MapFallbackToFile("index.html");
 }
+
+// Add session error handling middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (System.Security.Cryptography.CryptographicException ex) when (ex.Message.Contains("key") && ex.Message.Contains("not found"))
+    {
+        // Clear invalid session cookies
+        context.Response.Cookies.Delete(".AspNetCore.Session");
+        context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
+        
+        // Redirect to login page
+        context.Response.Redirect("/login");
+        return;
+    }
+});
 
 app.UseSession();
 app.UseAuthentication();
