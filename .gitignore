@@ -13,6 +13,6 @@ backend/wwwroot/
 backend/appsettings.Development.json
 
 # Ignore test project build artifacts
-TestMinimal/obj/
-TestMinimal/bin/
+backend/Tests/obj/
+backend/Tests/bin/
 

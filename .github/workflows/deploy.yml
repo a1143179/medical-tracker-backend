@@ -48,6 +48,9 @@ jobs:
     - name: Build backend
       run: dotnet build ./backend/backend.csproj --configuration Debug
 
+    - name: Run unit tests
+      run: dotnet test ./backend/Tests/Backend.Tests.csproj --verbosity normal
+
     - name: Install frontend dependencies
       run: |
         cd frontend

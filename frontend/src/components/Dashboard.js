@@ -114,7 +114,7 @@ function Dashboard({ mobilePage, onMobilePageChange }) {
     const { name, value } = e.target;
     // For 'level', always store as string to preserve decimals as typed
     if (name === 'level') {
-      setCurrentRecord({ ...currentRecord, [name]: value });
+    setCurrentRecord({ ...currentRecord, [name]: value });
     } else {
       setCurrentRecord({ ...currentRecord, [name]: value });
     }
