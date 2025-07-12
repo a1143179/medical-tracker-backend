@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Backend.Data;
 using Microsoft.AspNetCore.Authentication.Google;
+using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,11 +21,56 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.DefaultScheme = "Cookies";
         options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
     })
-    .AddCookie("Cookies")
+    .AddCookie("Cookies", options =>
+    {
+        options.Events.OnRedirectToLogin = context =>
+        {
+            context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        };
+    })
     .AddGoogle(options =>
     {
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
+        options.CallbackPath = "/api/auth/callback";
+        options.Events.OnTicketReceived = async context =>
+        {
+            var userService = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+            var claims = context.Principal.Claims;
+            var email = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value;
+            var name = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name)?.Value;
+            var googleId = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (!string.IsNullOrEmpty(email))
+            {
+                var user = await userService.Users.FirstOrDefaultAsync(u => u.Email == email);
+                
+                if (user == null)
+                {
+                    user = new Backend.Models.User
+                    {
+                        Email = email,
+                        Name = name ?? email,
+                        GoogleId = googleId
+                    };
+                    userService.Users.Add(user);
+                    await userService.SaveChangesAsync();
+                }
+                else if (!string.IsNullOrEmpty(googleId) && user.GoogleId != googleId)
+                {
+                    user.GoogleId = googleId;
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        user.Name = name;
+                    }
+                    await userService.SaveChangesAsync();
+                }
+
+                // Set session
+                context.HttpContext.Session.SetString("UserId", user.Id.ToString());
+            }
+        };
     });
 }
 else
