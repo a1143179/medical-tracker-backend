@@ -97,11 +97,11 @@ const GoogleLogin = () => {
           gap: 2,
           p: 2
         }}>
-          <Grid item xs={12} md={6} order={isMobile ? 2 : 1}>
-            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'block', md: 'block' }, textAlign: 'center' }}>
+          <Grid item xs={12} md={6} order={isMobile ? 2 : 1} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'block', md: 'block' }, textAlign: 'left' }}>
               {t('whatYoullGet')}
             </Typography>
-            <Stack spacing={2}>
+            <Stack spacing={2} sx={{ width: 'fit-content' }}>
               <Stack direction="row" alignItems="center" spacing={1}>
                 <GoogleIcon color="success" />
                 <Typography variant="body1">{t('trackBloodSugar')}</Typography>
@@ -117,7 +117,7 @@ const GoogleLogin = () => {
             </Stack>
           </Grid>
           <Grid item xs={12} md={6} order={isMobile ? 1 : 2}>
-            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'none', md: 'block' }, textAlign: 'center' }}>
+            <Typography variant="h6" fontWeight={600} color="primary" sx={{ mb: 2, display: { xs: 'none', md: 'block' }, textAlign: 'left' }}>
               {t('welcomeBack')}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3, display: { xs: 'block', md: 'block' } }}>
