@@ -50,6 +50,9 @@ jobs:
 
     - name: Run xunit tests
       run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
+      env:
+        # Ensure no connection string is set so tests use in-memory database
+        ConnectionStrings__DefaultConnection: ""
 
     - name: Install frontend dependencies
       run: |

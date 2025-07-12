@@ -8,9 +8,18 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Add Entity Framework with in-memory database for development
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseInMemoryDatabase("BloodSugarHistoryDb"));
+// Add Entity Framework - use PostgreSQL if connection string is available, otherwise in-memory
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+if (!string.IsNullOrEmpty(connectionString))
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
+}
+else
+{
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseInMemoryDatabase("BloodSugarHistoryDb"));
+}
 
 // Add session support
 builder.Services.AddDistributedMemoryCache();
