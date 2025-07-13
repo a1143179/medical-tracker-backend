@@ -1,0 +1,15 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
+  },
+  "Google": {
+    "ClientId": "your_google_client_id",
+    "ClientSecret": "your_google_client_secret"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+} 
