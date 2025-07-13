@@ -83,15 +83,10 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
     {
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
-        options.CallbackPath = "/api/auth/callback";
+        options.CallbackPath = "/signin-google"; // Use default callback path
         options.SaveTokens = true; // Save tokens for debugging
         
-        // Disable state validation to prevent OAuth state errors
-        options.StateDataFormat = null;
-        
-        // Configure OAuth state handling - use default state format with better session support
-        options.CorrelationCookie.SameSite = SameSiteMode.Lax;
-        options.CorrelationCookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
+
         
         // Configure dynamic redirect URI for production
         if (!builder.Environment.IsDevelopment())
@@ -109,33 +104,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
             };
         }
         
-        // Add callback event handler to better handle OAuth state
-        options.Events.OnRemoteFailure = context =>
-        {
-            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
-            logger.LogError("OAuth remote failure: {Error}", context.Failure?.Message);
-            
-            // Check if this is a state error and user might already be authenticated
-            if (context.Failure?.Message?.Contains("oauth state was missing or invalid") == true)
-            {
-                // Check if user is already authenticated
-                if (context.HttpContext.User?.Identity?.IsAuthenticated == true)
-                {
-                    logger.LogInformation("OAuth state error but user is authenticated, redirecting to dashboard");
-                    context.Response.Redirect("/dashboard");
-                    context.HandleResponse();
-                    return Task.CompletedTask;
-                }
-            }
-            
-            // Clear any invalid session data
-            context.HttpContext.Session.Clear();
-            
-            // Redirect to login page with error
-            context.Response.Redirect("/login?error=oauth_failed");
-            context.HandleResponse();
-            return Task.CompletedTask;
-        };
+
         
         // Add ticket validation
         options.Events.OnTicketReceived = async context =>

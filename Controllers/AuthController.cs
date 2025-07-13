@@ -130,12 +130,11 @@ public class AuthController : ControllerBase
             var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
             
             // Check if this is a valid OAuth callback with required parameters
-            var state = Request.Query["state"].ToString();
             var code = Request.Query["code"].ToString();
             var error = Request.Query["error"].ToString();
             
-            _logger.LogInformation("OAuth callback parameters - state: {State}, code: {Code}, error: {Error}", 
-                state, !string.IsNullOrEmpty(code) ? "present" : "missing", error);
+            _logger.LogInformation("OAuth callback parameters - code: {Code}, error: {Error}", 
+                !string.IsNullOrEmpty(code) ? "present" : "missing", error);
             
             if (!string.IsNullOrEmpty(error))
             {
@@ -149,12 +148,7 @@ public class AuthController : ControllerBase
                 return Redirect($"{frontendUrl}/login?error=missing_code");
             }
             
-            // Note: Google OAuth may not always send the state parameter
-            // We'll log this but continue with the flow
-            if (string.IsNullOrEmpty(state))
-            {
-                _logger.LogInformation("OAuth callback missing state parameter - continuing with flow");
-            }
+
             
             if (User?.Identity?.IsAuthenticated != true)
             {
