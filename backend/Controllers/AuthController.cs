@@ -48,7 +48,7 @@ public class AuthController : ControllerBase
                 !string.IsNullOrEmpty(googleClientSecret));
             
             // Return a proper HTML error page for browser requests
-            if (Request.Headers["Accept"].ToString().Contains("text/html"))
+            if (Request.Headers["Accept"].ToString()?.Contains("text/html") == true)
             {
                 return Content(@"
                     <html>
@@ -105,7 +105,7 @@ public class AuthController : ControllerBase
             _logger.LogError(ex, "Failed to initiate Google OAuth challenge");
             
             // Return a proper HTML error page for browser requests
-            if (Request.Headers["Accept"].ToString().Contains("text/html"))
+            if (Request.Headers["Accept"].ToString()?.Contains("text/html") == true)
             {
                 return Content($@"
                     <html>
