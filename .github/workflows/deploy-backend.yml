@@ -5,13 +5,24 @@ on:
     branches: [ main ]
     paths:
       - '**.cs'
-      - 'backend/**'
+      - '**.csproj'
+      - '**.json'
+      - 'Dockerfile'
       - '.github/workflows/deploy-backend.yml'
+      - '!frontend/**'
+      - '!**/package.json'
+      - '!**/package-lock.json'
   pull_request:
     branches: [ main ]
     paths:
       - '**.cs'
-      - 'backend/**'
+      - '**.csproj'
+      - '**.json'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-backend.yml'
+      - '!frontend/**'
+      - '!**/package.json'
+      - '!**/package-lock.json'
 
 env:
   BUILD_CONFIGURATION: 'Release'
@@ -41,10 +52,10 @@ jobs:
         dotnet-version: '9.0.x'
 
     - name: Install backend dependencies
-      run: dotnet restore ./backend/backend.csproj
+      run: dotnet restore
 
     - name: Build backend
-      run: dotnet build ./backend/backend.csproj --configuration Release
+      run: dotnet build --configuration Release
 
     # - name: Run backend tests
     #   run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
@@ -53,7 +64,6 @@ jobs:
 
     - name: Test backend startup
       run: |
-        cd backend
         timeout 30s dotnet run --urls http://localhost:3000 || true
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
@@ -61,7 +71,6 @@ jobs:
 
     - name: Build backend for production
       run: |
-        cd backend
         dotnet publish -c Release -o ./publish
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
@@ -78,5 +87,5 @@ jobs:
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ./backend/publish
+          package: ./publish
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }} 

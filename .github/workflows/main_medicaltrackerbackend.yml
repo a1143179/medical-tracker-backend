@@ -1,13 +1,17 @@
+# DISABLED: This is a generic Azure workflow that doesn't match our specific backend deployment needs
+# The backend deployment should use deploy-backend.yml instead
+
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy ASP.Net Core app to Azure Web App - medicaltrackerbackend
+name: Build and deploy ASP.Net Core app to Azure Web App - medicaltrackerbackend (DISABLED)
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  # Disabled - no triggers
+  # push:
+  #   branches:
+  #     - main
+  # workflow_dispatch:
 
 jobs:
   build:
