@@ -151,16 +151,16 @@ public class AuthController : ControllerBase
             }
             
             // Check if user is authenticated
-            if (!User.Identity.IsAuthenticated)
+            if (User?.Identity?.IsAuthenticated != true)
             {
                 _logger.LogWarning("User is not authenticated in callback");
                 return Redirect("/login?error=not_authenticated");
             }
 
             // Get user info from claims
-            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-            var name = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
-            var googleId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var email = User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var name = User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            var googleId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(email))
             {

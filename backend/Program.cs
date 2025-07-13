@@ -131,7 +131,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.Events.OnTicketReceived = async context =>
         {
             var userService = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-            var claims = context.Principal.Claims;
+            var claims = context.Principal?.Claims ?? Enumerable.Empty<System.Security.Claims.Claim>();
             var email = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value;
             var name = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name)?.Value;
             var googleId = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
