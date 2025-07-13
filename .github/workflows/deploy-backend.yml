@@ -74,7 +74,7 @@ jobs:
 
     - name: Build backend for production
       run: |
-        dotnet publish medicaltracker.sln -c Release -o ./publish
+        dotnet publish ./backend/backend.csproj -c Release -o ./publish
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
 
