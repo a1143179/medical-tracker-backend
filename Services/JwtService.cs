@@ -13,6 +13,8 @@ public interface IJwtService
     ClaimsPrincipal? ValidateRefreshToken(string token);
     string? GetUserEmailFromToken(string token);
     string GenerateAccessTokenFromRefreshToken(string refreshToken);
+    string GetAccessTokenCookieName();
+    string GetRefreshTokenCookieName();
 }
 
 public class JwtService : IJwtService
@@ -20,10 +22,28 @@ public class JwtService : IJwtService
     private readonly IConfiguration _configuration;
     private readonly ILogger<JwtService> _logger;
 
+    // Default cookie names
+    private const string DEFAULT_ACCESS_TOKEN_COOKIE_NAME = "access_token";
+    private const string DEFAULT_REFRESH_TOKEN_COOKIE_NAME = "refresh_token";
+
     public JwtService(IConfiguration configuration, ILogger<JwtService> logger)
     {
         _configuration = configuration;
         _logger = logger;
+    }
+
+    public string GetAccessTokenCookieName()
+    {
+        return _configuration["Jwt:AccessTokenCookieName"] 
+               ?? Environment.GetEnvironmentVariable("JWT_ACCESS_TOKEN_COOKIE_NAME") 
+               ?? DEFAULT_ACCESS_TOKEN_COOKIE_NAME;
+    }
+
+    public string GetRefreshTokenCookieName()
+    {
+        return _configuration["Jwt:RefreshTokenCookieName"] 
+               ?? Environment.GetEnvironmentVariable("JWT_REFRESH_TOKEN_COOKIE_NAME") 
+               ?? DEFAULT_REFRESH_TOKEN_COOKIE_NAME;
     }
 
     public (string accessToken, string refreshToken) GenerateTokenPair(User user, bool rememberMe = false)

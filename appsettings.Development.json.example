@@ -6,6 +6,10 @@
     "ClientId": "your_google_client_id",
     "ClientSecret": "your_google_client_secret"
   },
+  "Jwt": {
+    "AccessTokenCookieName": "medical_tracker_access_token",
+    "RefreshTokenCookieName": "medical_tracker_refresh_token"
+  },
   "Logging": {
     "LogLevel": {
       "Default": "Information",

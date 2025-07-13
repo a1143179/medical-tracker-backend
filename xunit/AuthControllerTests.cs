@@ -66,4 +66,74 @@ public class AuthControllerTests
         var result = await controller.Me();
         Assert.IsType<UnauthorizedResult>(result);
     }
+
+    [Fact]
+    public async Task GoogleLoginCallback_SetsCookiesAndRedirects()
+    {
+        using var context = new AppDbContext(_options);
+        var mockJwtService = new Mock<Backend.Services.IJwtService>();
+        var controller = new Backend.AuthController(context, _mockLogger.Object, _mockConfig.Object, _mockEnv.Object, mockJwtService.Object);
+
+        // Arrange: Simulate Google claims
+        var user = new User { Id = 2, Email = "googleuser@example.com", Name = "Google User", GoogleId = "google-123" };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+        var httpContext = new DefaultHttpContext();
+        var claims = new List<System.Security.Claims.Claim>
+        {
+            new(System.Security.Claims.ClaimTypes.Email, user.Email),
+            new(System.Security.Claims.ClaimTypes.Name, user.Name),
+            new(System.Security.Claims.ClaimTypes.NameIdentifier, user.GoogleId ?? "google-123")
+        };
+        var identity = new System.Security.Claims.ClaimsIdentity(claims, "Google");
+        httpContext.User = new System.Security.Claims.ClaimsPrincipal(identity);
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+
+        // Mock JWT service
+        mockJwtService.Setup(s => s.GenerateTokenPair(It.IsAny<User>(), false))
+            .Returns(("access-token-mock", "refresh-token-mock"));
+        mockJwtService.Setup(s => s.GetAccessTokenCookieName()).Returns("access_token");
+        mockJwtService.Setup(s => s.GetRefreshTokenCookieName()).Returns("refresh_token");
+        _mockConfig.Setup(c => c["Frontend:Url"]).Returns("http://localhost:3000");
+        _mockEnv.Setup(e => e.IsDevelopment()).Returns(true);
+
+        // Act
+        var result = await controller.Callback();
+
+        // Assert
+        Assert.IsType<RedirectResult>(result);
+        var redirect = result as RedirectResult;
+        Assert.Contains("/dashboard", redirect.Url);
+        Assert.Contains("access_token", httpContext.Response.Headers["Set-Cookie"]);
+        Assert.Contains("refresh_token", httpContext.Response.Headers["Set-Cookie"]);
+    }
+
+    [Fact]
+    public void RefreshToken_WithValidRefreshToken_SetsNewAccessTokenCookie()
+    {
+        using var context = new AppDbContext(_options);
+        var mockJwtService = new Mock<Backend.Services.IJwtService>();
+        var controller = new Backend.AuthController(context, _mockLogger.Object, _mockConfig.Object, _mockEnv.Object, mockJwtService.Object);
+        var httpContext = new DefaultHttpContext();
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+
+        // Arrange: Set valid refresh token in cookie
+        httpContext.Request.Cookies = new TestRequestCookieCollection(new Dictionary<string, string>
+        {
+            { "refresh_token", "valid-refresh-token" }
+        });
+        mockJwtService.Setup(s => s.GetRefreshTokenCookieName()).Returns("refresh_token");
+        mockJwtService.Setup(s => s.GetAccessTokenCookieName()).Returns("access_token");
+        mockJwtService.Setup(s => s.GenerateAccessTokenFromRefreshToken("valid-refresh-token"))
+            .Returns("new-access-token");
+        _mockEnv.Setup(e => e.IsDevelopment()).Returns(true);
+
+        // Act
+        var result = controller.RefreshToken();
+
+        // Assert
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        Assert.Contains("access_token", httpContext.Response.Headers["Set-Cookie"]);
+        Assert.Equal("Access token refreshed successfully", ((dynamic)okResult.Value).message);
+    }
 } 

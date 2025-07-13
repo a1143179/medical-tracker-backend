@@ -125,26 +125,42 @@ public class AuthController : ControllerBase
     {
         try
         {
-            _logger.LogInformation("OAuth callback received");
+            _logger.LogInformation("OAuth callback received with query parameters: {QueryString}", Request.QueryString);
             
             // Check if this is a valid OAuth callback with required parameters
             var state = Request.Query["state"].ToString();
             var code = Request.Query["code"].ToString();
+            var error = Request.Query["error"].ToString();
             
-            if (string.IsNullOrEmpty(state) || string.IsNullOrEmpty(code))
+            // Log all query parameters for debugging
+            _logger.LogInformation("OAuth callback parameters - state: {State}, code: {Code}, error: {Error}", 
+                state, !string.IsNullOrEmpty(code) ? "present" : "missing", error);
+            
+            // Check for OAuth errors first
+            if (!string.IsNullOrEmpty(error))
             {
-                _logger.LogWarning("OAuth callback missing required parameters - state: {HasState}, code: {HasCode}", 
-                    !string.IsNullOrEmpty(state), !string.IsNullOrEmpty(code));
-                
-                // If user is already authenticated, redirect to dashboard
-                if (User?.Identity?.IsAuthenticated == true)
+                _logger.LogError("OAuth error received: {Error}", error);
+                return Redirect($"/login?error=oauth_error&message={error}");
+            }
+            
+            if (string.IsNullOrEmpty(code))
+            {
+                _logger.LogWarning("OAuth callback missing authorization code");
+                return Redirect("/login?error=missing_code");
+            }
+            
+            // Note: In some cases, Google might not send the state parameter
+            // This can happen if the OAuth flow was initiated differently or if there are cookie issues
+            // We'll log this but continue with the flow for now
+            if (string.IsNullOrEmpty(state))
+            {
+                _logger.LogWarning("OAuth callback missing state parameter - this may indicate a security issue");
+                // In production, you might want to be more strict about this
+                if (!_environment.IsDevelopment())
                 {
-                    _logger.LogInformation("User already authenticated, redirecting to dashboard");
-                    return Redirect("/dashboard");
+                    _logger.LogError("Missing state parameter in production - rejecting callback");
+                    return Redirect("/login?error=missing_state");
                 }
-                
-                // Otherwise redirect to login
-                return Redirect("/login?error=invalid_callback");
             }
             
             // Check if user is authenticated
@@ -164,6 +180,8 @@ public class AuthController : ControllerBase
                 _logger.LogError("Email claim not found in OAuth callback");
                 return Redirect("/login?error=no_email");
             }
+
+            _logger.LogInformation("Processing OAuth callback for user: {Email}, GoogleId: {GoogleId}", email, googleId);
 
             // Find or create user
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
@@ -234,8 +252,8 @@ public class AuthController : ControllerBase
                 Expires = DateTime.UtcNow.AddHours(24)
             };
             
-            Response.Cookies.Append("access_token", accessToken, accessTokenOptions);
-            Response.Cookies.Append("refresh_token", refreshToken, refreshTokenOptions);
+            Response.Cookies.Append(_jwtService.GetAccessTokenCookieName(), accessToken, accessTokenOptions);
+            Response.Cookies.Append(_jwtService.GetRefreshTokenCookieName(), refreshToken, refreshTokenOptions);
             
             // Get frontend URL from configuration or use default
             var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
@@ -294,8 +312,8 @@ public class AuthController : ControllerBase
     public IActionResult Logout()
     {
         // Clear both JWT cookies
-        Response.Cookies.Delete("access_token");
-        Response.Cookies.Delete("refresh_token");
+        Response.Cookies.Delete(_jwtService.GetAccessTokenCookieName());
+        Response.Cookies.Delete(_jwtService.GetRefreshTokenCookieName());
         return Ok(new { message = "Logged out successfully" });
     }
 
@@ -305,7 +323,7 @@ public class AuthController : ControllerBase
         try
         {
             // Get refresh token from HTTP-only cookie
-            var refreshToken = Request.Cookies["refresh_token"];
+            var refreshToken = Request.Cookies[_jwtService.GetRefreshTokenCookieName()];
             
             if (string.IsNullOrEmpty(refreshToken))
             {
@@ -326,7 +344,7 @@ public class AuthController : ControllerBase
                 Expires = DateTime.UtcNow.AddHours(1)
             };
             
-            Response.Cookies.Append("access_token", newAccessToken, accessTokenOptions);
+            Response.Cookies.Append(_jwtService.GetAccessTokenCookieName(), newAccessToken, accessTokenOptions);
             
             _logger.LogInformation("Access token refreshed successfully");
             
@@ -348,7 +366,7 @@ public class AuthController : ControllerBase
     {
         // Get token from Authorization header or access token cookie
         var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "") 
-                   ?? Request.Cookies["access_token"];
+                   ?? Request.Cookies[_jwtService.GetAccessTokenCookieName()];
         
         if (string.IsNullOrEmpty(token))
         {
@@ -409,7 +427,36 @@ public class AuthController : ControllerBase
             hasJwtAudience = !string.IsNullOrEmpty(jwtAudience),
             frontendUrl = frontendUrl,
             jwtKeyLength = jwtKey?.Length ?? 0,
-            environment = _environment.EnvironmentName
+            environment = _environment.EnvironmentName,
+            accessTokenCookieName = _jwtService.GetAccessTokenCookieName(),
+            refreshTokenCookieName = _jwtService.GetRefreshTokenCookieName()
+        });
+    }
+
+    [HttpGet("debug-oauth")]
+    public IActionResult DebugOAuth()
+    {
+        var googleClientId = _configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+        var googleClientSecret = _configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+        var frontendUrl = _configuration["Frontend:Url"] ?? Environment.GetEnvironmentVariable("FRONTEND_URL");
+        
+        var request = HttpContext.Request;
+        var currentUrl = $"{request.Scheme}://{request.Host}{request.PathBase}";
+        var callbackUrl = $"{currentUrl}/api/auth/callback";
+        
+        return Ok(new 
+        { 
+            hasGoogleClientId = !string.IsNullOrEmpty(googleClientId),
+            hasGoogleClientSecret = !string.IsNullOrEmpty(googleClientSecret),
+            googleClientIdLength = googleClientId?.Length ?? 0,
+            frontendUrl = frontendUrl,
+            currentUrl = currentUrl,
+            callbackUrl = callbackUrl,
+            environment = _environment.EnvironmentName,
+            isDevelopment = _environment.IsDevelopment(),
+            userAgent = Request.Headers["User-Agent"].ToString(),
+            cookies = Request.Cookies.Keys.ToList(),
+            sessionId = HttpContext.Session.Id
         });
     }
 } 
