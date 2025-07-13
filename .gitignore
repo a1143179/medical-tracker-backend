@@ -5,6 +5,8 @@ node_modules/
 backend/obj/
 backend/bin/ 
 backend/logs/
+bin/
+obj/
 
 # Ignore backend static files
 backend/wwwroot/
