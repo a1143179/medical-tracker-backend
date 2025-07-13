@@ -11,6 +11,12 @@ using Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Ensure the app runs on port 55556 in development
+if (builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://localhost:55556");
+}
+
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
@@ -138,7 +144,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.Events.OnTicketReceived = async context =>
         {
             var userService = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-            var claims = context.Principal.Claims;
+            var claims = context.Principal?.Claims ?? Enumerable.Empty<System.Security.Claims.Claim>();
             var email = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Email)?.Value;
             var name = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.Name)?.Value;
             var googleId = claims.FirstOrDefault(c => c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;

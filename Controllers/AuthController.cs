@@ -127,50 +127,44 @@ public class AuthController : ControllerBase
         {
             _logger.LogInformation("OAuth callback received with query parameters: {QueryString}", Request.QueryString);
             
+            var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
+            
             // Check if this is a valid OAuth callback with required parameters
             var state = Request.Query["state"].ToString();
             var code = Request.Query["code"].ToString();
             var error = Request.Query["error"].ToString();
             
-            // Log all query parameters for debugging
             _logger.LogInformation("OAuth callback parameters - state: {State}, code: {Code}, error: {Error}", 
                 state, !string.IsNullOrEmpty(code) ? "present" : "missing", error);
             
-            // Check for OAuth errors first
             if (!string.IsNullOrEmpty(error))
             {
                 _logger.LogError("OAuth error received: {Error}", error);
-                return Redirect($"/login?error=oauth_error&message={error}");
+                return Redirect($"{frontendUrl}/login?error=oauth_error&message={error}");
             }
             
             if (string.IsNullOrEmpty(code))
             {
                 _logger.LogWarning("OAuth callback missing authorization code");
-                return Redirect("/login?error=missing_code");
+                return Redirect($"{frontendUrl}/login?error=missing_code");
             }
             
-            // Note: In some cases, Google might not send the state parameter
-            // This can happen if the OAuth flow was initiated differently or if there are cookie issues
-            // We'll log this but continue with the flow for now
             if (string.IsNullOrEmpty(state))
             {
                 _logger.LogWarning("OAuth callback missing state parameter - this may indicate a security issue");
-                // In production, you might want to be more strict about this
                 if (!_environment.IsDevelopment())
                 {
                     _logger.LogError("Missing state parameter in production - rejecting callback");
-                    return Redirect("/login?error=missing_state");
+                    return Redirect($"{frontendUrl}/login?error=missing_state");
                 }
             }
             
-            // Check if user is authenticated
             if (User?.Identity?.IsAuthenticated != true)
             {
                 _logger.LogWarning("User is not authenticated in callback");
-                return Redirect("/login?error=not_authenticated");
+                return Redirect($"{frontendUrl}/login?error=not_authenticated");
             }
 
-            // Get user info from claims
             var email = User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
             var name = User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
             var googleId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
@@ -178,12 +172,11 @@ public class AuthController : ControllerBase
             if (string.IsNullOrEmpty(email))
             {
                 _logger.LogError("Email claim not found in OAuth callback");
-                return Redirect("/login?error=no_email");
+                return Redirect($"{frontendUrl}/login?error=no_email");
             }
 
             _logger.LogInformation("Processing OAuth callback for user: {Email}, GoogleId: {GoogleId}", email, googleId);
 
-            // Find or create user
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
             
             if (user == null)
@@ -209,16 +202,13 @@ public class AuthController : ControllerBase
                 _logger.LogInformation("Updated existing user: {Email}", email);
             }
 
-            // Generate JWT token pair
             var (accessToken, refreshToken) = _jwtService.GenerateTokenPair(user, false);
             
             _logger.LogInformation("OAuth callback successful for user: {Email}, JWT token pair generated", email);
             
-            // Get Google access token expiration (default to 1 hour if not available)
             var googleTokenExpiresIn = 3600; // Default 1 hour in seconds
             try
             {
-                // Try to get expiration from Google token info if available
                 var googleTokenInfo = await GetGoogleTokenInfo(code);
                 if (googleTokenInfo?.expires_in != null)
                 {
@@ -231,7 +221,6 @@ public class AuthController : ControllerBase
                 _logger.LogWarning(ex, "Could not get Google token info, using default expiration");
             }
             
-            // Set access token as normal cookie (accessible by JavaScript)
             var accessTokenExpires = DateTime.UtcNow.AddSeconds(googleTokenExpiresIn);
             var accessTokenOptions = new CookieOptions
             {
@@ -242,7 +231,6 @@ public class AuthController : ControllerBase
                 Expires = accessTokenExpires
             };
             
-            // Set refresh token as HTTP-only cookie (not accessible by JavaScript)
             var refreshTokenOptions = new CookieOptions
             {
                 HttpOnly = true, // Not accessible by JavaScript
@@ -255,19 +243,17 @@ public class AuthController : ControllerBase
             Response.Cookies.Append(_jwtService.GetAccessTokenCookieName(), accessToken, accessTokenOptions);
             Response.Cookies.Append(_jwtService.GetRefreshTokenCookieName(), refreshToken, refreshTokenOptions);
             
-            // Get frontend URL from configuration or use default
-            var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
             var redirectUrl = $"{frontendUrl}/dashboard";
             
             _logger.LogInformation("Redirecting to frontend: {RedirectUrl}, access token expires: {AccessExpires}", redirectUrl, accessTokenExpires);
             
-            // Redirect to frontend dashboard
             return Redirect(redirectUrl);
         }
         catch (Exception ex)
         {
+            var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
             _logger.LogError(ex, "Error in OAuth callback");
-            return Redirect("/login?error=callback_failed");
+            return Redirect($"{frontendUrl}/login?error=callback_failed");
         }
     }
 
