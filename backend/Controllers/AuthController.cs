@@ -67,7 +67,7 @@ public class AuthController : ControllerBase
 
         var properties = new AuthenticationProperties
         {
-            RedirectUri = "/dashboard",
+            RedirectUri = "/api/auth/callback",
             Items =
             {
                 { "returnUrl", returnUrl }
@@ -80,7 +80,7 @@ public class AuthController : ControllerBase
             var request = HttpContext.Request;
             var scheme = request.Scheme; // Will be "https" in production
             var host = request.Host.Value ?? "localhost";
-            var redirectUri = $"{scheme}://{host}/dashboard";
+            var redirectUri = $"{scheme}://{host}/api/auth/callback";
             properties.RedirectUri = redirectUri;
         }
 
