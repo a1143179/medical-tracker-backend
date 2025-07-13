@@ -6,6 +6,7 @@ on:
     paths:
       - '**.cs'
       - '**.csproj'
+      - '**.sln'
       - '**.json'
       - 'Dockerfile'
       - '.github/workflows/deploy-backend.yml'
@@ -17,6 +18,7 @@ on:
     paths:
       - '**.cs'
       - '**.csproj'
+      - '**.sln'
       - '**.json'
       - 'Dockerfile'
       - '.github/workflows/deploy-backend.yml'
@@ -52,10 +54,10 @@ jobs:
         dotnet-version: '9.0.x'
 
     - name: Install backend dependencies
-      run: dotnet restore
+      run: dotnet restore bloodsugerhistory.sln
 
     - name: Build backend
-      run: dotnet build --configuration Release
+      run: dotnet build bloodsugerhistory.sln --configuration Release
 
     # - name: Run backend tests
     #   run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
@@ -64,6 +66,7 @@ jobs:
 
     - name: Test backend startup
       run: |
+        cd backend
         timeout 30s dotnet run --urls http://localhost:3000 || true
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
@@ -71,7 +74,7 @@ jobs:
 
     - name: Build backend for production
       run: |
-        dotnet publish -c Release -o ./publish
+        dotnet publish bloodsugerhistory.sln -c Release -o ./publish
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
 
