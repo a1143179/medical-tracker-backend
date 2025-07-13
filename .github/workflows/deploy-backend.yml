@@ -54,10 +54,10 @@ jobs:
         dotnet-version: '9.0.x'
 
     - name: Install backend dependencies
-      run: dotnet restore medicaltracker.sln
+      run: dotnet restore backend.csproj
 
     - name: Build backend
-      run: dotnet build medicaltracker.sln --configuration Release
+      run: dotnet build backend.csproj --configuration Release
 
     # - name: Run backend tests
     #   run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
@@ -66,7 +66,6 @@ jobs:
 
     - name: Test backend startup
       run: |
-        cd backend
         timeout 30s dotnet run --urls http://localhost:3000 || true
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
@@ -74,7 +73,7 @@ jobs:
 
     - name: Build backend for production
       run: |
-        dotnet publish ./backend/backend.csproj -c Release -o ./publish
+        dotnet publish backend.csproj -c Release -o ./publish
       env:
         ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
 
