@@ -43,6 +43,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.ClientId = googleClientId;
         options.ClientSecret = googleClientSecret;
         options.CallbackPath = "/api/auth/callback";
+        options.SaveTokens = true; // Save tokens for debugging
         
         // Configure dynamic redirect URI for production
         if (!builder.Environment.IsDevelopment())
@@ -59,6 +60,18 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
                 return Task.CompletedTask;
             };
         }
+        
+        // Add callback event handler to better handle OAuth state
+        options.Events.OnRemoteFailure = context =>
+        {
+            var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+            logger.LogError("OAuth remote failure: {Error}", context.Failure?.Message);
+            
+            // Redirect to login page with error
+            context.Response.Redirect("/login?error=oauth_failed");
+            context.HandleResponse();
+            return Task.CompletedTask;
+        };
         
         options.Events.OnTicketReceived = async context =>
         {
@@ -222,7 +235,21 @@ app.Use(async (context, next) =>
     await next();
 });
 
+// Ensure session is available before authentication
 app.UseSession();
+
+// Add OAuth state validation middleware
+app.Use(async (context, next) =>
+{
+    // Ensure session is established before OAuth flow
+    if (context.Request.Path.StartsWithSegments("/api/auth"))
+    {
+        await context.Session.LoadAsync();
+    }
+    
+    await next();
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

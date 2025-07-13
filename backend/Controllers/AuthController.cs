@@ -71,7 +71,10 @@ public class AuthController : ControllerBase
             Items =
             {
                 { "returnUrl", returnUrl }
-            }
+            },
+            // Ensure OAuth state is properly maintained
+            IsPersistent = true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(30)
         };
 
         // In production, ensure the redirect URI uses HTTPS
