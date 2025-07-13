@@ -54,7 +54,7 @@ if "%RUN_BACKEND%"=="true" (
     goto :backend_skip
   )
   set "BACKEND_STATUS=STARTING"
-  cd backend && dotnet restore && dotnet watch run
+  dotnet restore backend.csproj && dotnet watch run --project backend.csproj
   timeout /t 5 /nobreak >nul
   set "BACKEND_STATUS=RUNNING (http://localhost:55556)"
   goto :backend_done

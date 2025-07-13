@@ -59,7 +59,7 @@ public class JwtService : IJwtService
             throw new InvalidOperationException("JWT configuration is incomplete");
         }
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var userClaims = new List<Claim>
@@ -199,7 +199,7 @@ public class JwtService : IJwtService
         var jwtIssuer = _configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER");
         var jwtAudience = _configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE");
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey!));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new List<Claim>

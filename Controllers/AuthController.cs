@@ -10,8 +10,19 @@ using Microsoft.AspNetCore.Authentication.Google;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Backend.Services;
+using System.Text.Json;
 
 namespace Backend;
+
+public class GoogleUserInfo
+{
+    public string? id { get; set; }
+    public string? email { get; set; }
+    public string? name { get; set; }
+    public string? given_name { get; set; }
+    public string? family_name { get; set; }
+    public string? picture { get; set; }
+}
 
 [ApiController]
 [Route("api/[controller]")]
@@ -161,9 +172,9 @@ public class AuthController : ControllerBase
                 return Redirect($"{frontendUrl}/login?error=token_exchange_failed");
             }
             
-            var email = userInfo.email?.ToString();
-            var name = userInfo.name?.ToString();
-            var googleId = userInfo.id?.ToString();
+            var email = userInfo.email ?? "";
+            var name = userInfo.name ?? "";
+            var googleId = userInfo.id ?? "";
 
             if (string.IsNullOrEmpty(email))
             {
@@ -253,7 +264,7 @@ public class AuthController : ControllerBase
         }
     }
 
-    private async Task<dynamic?> GetGoogleUserInfo(string code)
+    private async Task<GoogleUserInfo?> GetGoogleUserInfo(string code)
     {
         try
         {
@@ -308,9 +319,10 @@ public class AuthController : ControllerBase
             }
             
             var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
-            var userInfo = System.Text.Json.JsonSerializer.Deserialize<dynamic>(userInfoContent);
+            var userInfo = System.Text.Json.JsonSerializer.Deserialize<GoogleUserInfo>(userInfoContent);
             
-            _logger.LogInformation("Successfully retrieved user info from Google for email: {Email}", userInfo?.email?.ToString());
+            var userEmail = userInfo?.email ?? "unknown";
+            _logger.LogInformation("Successfully retrieved user info from Google for email: {Email}", userEmail);
             return userInfo;
         }
         catch (Exception ex)
