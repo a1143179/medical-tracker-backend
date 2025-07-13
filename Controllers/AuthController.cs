@@ -150,19 +150,24 @@ public class AuthController : ControllerBase
             
 
             
-            if (User?.Identity?.IsAuthenticated != true)
+            // Handle OAuth flow manually since middleware authentication is failing
+            _logger.LogInformation("Handling OAuth callback manually with authorization code");
+            
+            // Exchange authorization code for tokens and get user info
+            var userInfo = await GetGoogleUserInfo(code);
+            if (userInfo == null)
             {
-                _logger.LogWarning("User is not authenticated in callback");
-                return Redirect($"{frontendUrl}/login?error=not_authenticated");
+                _logger.LogError("Failed to get user info from Google");
+                return Redirect($"{frontendUrl}/login?error=token_exchange_failed");
             }
-
-            var email = User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-            var name = User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
-            var googleId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            
+            var email = userInfo.email?.ToString();
+            var name = userInfo.name?.ToString();
+            var googleId = userInfo.id?.ToString();
 
             if (string.IsNullOrEmpty(email))
             {
-                _logger.LogError("Email claim not found in OAuth callback");
+                _logger.LogError("Email not found in Google user info");
                 return Redirect($"{frontendUrl}/login?error=no_email");
             }
 
@@ -245,6 +250,73 @@ public class AuthController : ControllerBase
             var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
             _logger.LogError(ex, "Error in OAuth callback");
             return Redirect($"{frontendUrl}/login?error=callback_failed");
+        }
+    }
+
+    private async Task<dynamic?> GetGoogleUserInfo(string code)
+    {
+        try
+        {
+            var clientId = _configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+            var clientSecret = _configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+            
+            if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+            {
+                _logger.LogError("Google OAuth credentials not configured");
+                return null;
+            }
+            
+            using var httpClient = new HttpClient();
+            
+            // Step 1: Exchange authorization code for access token
+            var tokenRequest = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("code", code),
+                new KeyValuePair<string, string>("grant_type", "authorization_code"),
+                new KeyValuePair<string, string>("redirect_uri", "/api/auth/callback")
+            });
+            
+            var tokenResponse = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
+            if (!tokenResponse.IsSuccessStatusCode)
+            {
+                var errorContent = await tokenResponse.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to exchange authorization code for token: {Error}", errorContent);
+                return null;
+            }
+            
+            var tokenContent = await tokenResponse.Content.ReadAsStringAsync();
+            var tokenData = System.Text.Json.JsonSerializer.Deserialize<dynamic>(tokenContent);
+            var accessToken = tokenData?.access_token?.ToString();
+            
+            if (string.IsNullOrEmpty(accessToken))
+            {
+                _logger.LogError("No access token received from Google");
+                return null;
+            }
+            
+            // Step 2: Get user info using the access token
+            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
+            var userInfoResponse = await httpClient.GetAsync("https://www.googleapis.com/oauth2/v2/userinfo");
+            
+            if (!userInfoResponse.IsSuccessStatusCode)
+            {
+                var errorContent = await userInfoResponse.Content.ReadAsStringAsync();
+                _logger.LogError("Failed to get user info from Google: {Error}", errorContent);
+                return null;
+            }
+            
+            var userInfoContent = await userInfoResponse.Content.ReadAsStringAsync();
+            var userInfo = System.Text.Json.JsonSerializer.Deserialize<dynamic>(userInfoContent);
+            
+            _logger.LogInformation("Successfully retrieved user info from Google for email: {Email}", userInfo?.email?.ToString());
+            return userInfo;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get Google user info");
+            return null;
         }
     }
 
