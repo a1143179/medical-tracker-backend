@@ -1,0 +1,34 @@
+2025-07-14 09:12:49.241 +10:00 [INF] Google OAuth configuration - ClientId: true, ClientSecret: true, Environment: Development
+2025-07-14 09:12:49.851 +10:00 [INF] Executed DbCommand (31ms) [Parameters=[], CommandType='"Text"', CommandTimeout='30']
+SELECT CASE WHEN COUNT(*) = 0 THEN FALSE ELSE TRUE END
+FROM pg_class AS cls
+JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+WHERE
+        cls.relkind IN ('r', 'v', 'm', 'f', 'p') AND
+        ns.nspname NOT IN ('pg_catalog', 'information_schema') AND
+        -- Exclude tables which are members of PG extensions
+        NOT EXISTS (
+            SELECT 1 FROM pg_depend WHERE
+                classid=(
+                    SELECT cls.oid
+                    FROM pg_class AS cls
+                             JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace
+                    WHERE relname='pg_class' AND ns.nspname='pg_catalog'
+                ) AND
+                objid=cls.oid AND
+                deptype IN ('e', 'x')
+        )
+2025-07-14 09:12:49.943 +10:00 [INF] User profile is available. Using 'C:\Users\weiwa\AppData\Local\ASP.NET\DataProtection-Keys' as key repository and Windows DPAPI to encrypt keys at rest.
+2025-07-14 09:12:50.012 +10:00 [INF] Now listening on: http://localhost:55556
+2025-07-14 09:12:50.013 +10:00 [INF] Application started. Press Ctrl+C to shut down.
+2025-07-14 09:12:50.013 +10:00 [INF] Hosting environment: Development
+2025-07-14 09:12:50.013 +10:00 [INF] Content root path: D:\workspace\medicaltracker\medical-tracker-backend
+2025-07-14 09:12:56.407 +10:00 [INF] Request starting HTTP/1.1 GET http://localhost:55556/api/auth/callback?code=4%2F0AVMBsJg9gcNBJL5R2eY3_p8E7n4xRPda2NqhwQUH-Qv5tquitfCMejSThThuczsZw-MkZQ&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=1&prompt=none - null null
+2025-07-14 09:12:56.479 +10:00 [INF] OAuth request: /api/auth/callback, Method: GET, HasSession: true, QueryString: ?code=4%2F0AVMBsJg9gcNBJL5R2eY3_p8E7n4xRPda2NqhwQUH-Qv5tquitfCMejSThThuczsZw-MkZQ&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=1&prompt=none
+2025-07-14 09:12:56.499 +10:00 [INF] Error from RemoteAuthentication: The oauth state was missing or invalid..
+2025-07-14 09:12:56.500 +10:00 [ERR] OAuth remote failure: The oauth state was missing or invalid.
+2025-07-14 09:12:56.505 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/api/auth/callback?code=4%2F0AVMBsJg9gcNBJL5R2eY3_p8E7n4xRPda2NqhwQUH-Qv5tquitfCMejSThThuczsZw-MkZQ&scope=email+profile+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email&authuser=1&prompt=none - 302 0 null 98.5507ms
+2025-07-14 09:12:56.511 +10:00 [INF] Request starting HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - null null
+2025-07-14 09:12:56.516 +10:00 [DBG] AuthenticationScheme: Cookies was not authenticated.
+2025-07-14 09:12:56.518 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - 404 0 null 7.0993ms
+2025-07-14 09:12:56.518 +10:00 [INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:55556/login, Response status code: 404
