@@ -32,3 +32,21 @@ WHERE
 2025-07-14 09:12:56.516 +10:00 [DBG] AuthenticationScheme: Cookies was not authenticated.
 2025-07-14 09:12:56.518 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - 404 0 null 7.0993ms
 2025-07-14 09:12:56.518 +10:00 [INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:55556/login, Response status code: 404
+2025-07-14 09:13:37.980 +10:00 [INF] Request starting HTTP/1.1 GET http://localhost:55556/api/auth/callback?code=4%2F0AVMBsJg0NAzJnmMDyRTF0e-pe6QinH3qwP8y9-JrzrPS0JlnMHczwCVqpi5kZROFQiuRfA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=1&prompt=none - null null
+2025-07-14 09:13:37.984 +10:00 [INF] OAuth request: /api/auth/callback, Method: GET, HasSession: true, QueryString: ?code=4%2F0AVMBsJg0NAzJnmMDyRTF0e-pe6QinH3qwP8y9-JrzrPS0JlnMHczwCVqpi5kZROFQiuRfA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=1&prompt=none
+2025-07-14 09:13:37.985 +10:00 [INF] Error from RemoteAuthentication: The oauth state was missing or invalid..
+2025-07-14 09:13:37.986 +10:00 [ERR] OAuth remote failure: The oauth state was missing or invalid.
+2025-07-14 09:13:37.986 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/api/auth/callback?code=4%2F0AVMBsJg0NAzJnmMDyRTF0e-pe6QinH3qwP8y9-JrzrPS0JlnMHczwCVqpi5kZROFQiuRfA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=1&prompt=none - 302 0 null 6.6689ms
+2025-07-14 09:13:37.991 +10:00 [INF] Request starting HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - null null
+2025-07-14 09:13:37.993 +10:00 [DBG] AuthenticationScheme: Cookies was not authenticated.
+2025-07-14 09:13:37.996 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - 404 0 null 4.6115ms
+2025-07-14 09:13:37.996 +10:00 [INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:55556/login, Response status code: 404
+2025-07-14 09:13:50.574 +10:00 [INF] Request starting HTTP/1.1 GET http://localhost:55556/api/auth/callback?code=4%2F0AVMBsJgz04BWGRaH96w1IhyTSwTV9U3L2tR3Gn2uVTp76HUZ4mXi2W-_3HjFmWTDNBa9LA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=1&prompt=none - null null
+2025-07-14 09:13:50.577 +10:00 [INF] OAuth request: /api/auth/callback, Method: GET, HasSession: true, QueryString: ?code=4%2F0AVMBsJgz04BWGRaH96w1IhyTSwTV9U3L2tR3Gn2uVTp76HUZ4mXi2W-_3HjFmWTDNBa9LA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=1&prompt=none
+2025-07-14 09:13:50.578 +10:00 [INF] Error from RemoteAuthentication: The oauth state was missing or invalid..
+2025-07-14 09:13:50.578 +10:00 [ERR] OAuth remote failure: The oauth state was missing or invalid.
+2025-07-14 09:13:50.579 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/api/auth/callback?code=4%2F0AVMBsJgz04BWGRaH96w1IhyTSwTV9U3L2tR3Gn2uVTp76HUZ4mXi2W-_3HjFmWTDNBa9LA&scope=email+profile+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email+openid+https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.profile&authuser=1&prompt=none - 302 0 null 5.0429ms
+2025-07-14 09:13:50.586 +10:00 [INF] Request starting HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - null null
+2025-07-14 09:13:50.588 +10:00 [DBG] AuthenticationScheme: Cookies was not authenticated.
+2025-07-14 09:13:50.588 +10:00 [INF] Request finished HTTP/1.1 GET http://localhost:55556/login?error=oauth_failed - 404 0 null 2.7369ms
+2025-07-14 09:13:50.589 +10:00 [INF] Request reached the end of the middleware pipeline without being handled by application code. Request path: GET http://localhost:55556/login, Response status code: 404

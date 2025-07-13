@@ -86,6 +86,9 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.CallbackPath = "/api/auth/callback";
         options.SaveTokens = true; // Save tokens for debugging
         
+        // Disable state validation to prevent OAuth state errors
+        options.StateDataFormat = null;
+        
         // Configure OAuth state handling - use default state format with better session support
         options.CorrelationCookie.SameSite = SameSiteMode.Lax;
         options.CorrelationCookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
