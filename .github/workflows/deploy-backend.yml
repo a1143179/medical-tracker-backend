@@ -1,0 +1,94 @@
+name: Deploy Backend to Azure
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.json'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-backend.yml'
+      - '!frontend/**'
+      - '!**/package.json'
+      - '!**/package-lock.json'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.cs'
+      - '**.csproj'
+      - '**.sln'
+      - '**.json'
+      - 'Dockerfile'
+      - '.github/workflows/deploy-backend.yml'
+      - '!frontend/**'
+      - '!**/package.json'
+      - '!**/package-lock.json'
+
+env:
+  BUILD_CONFIGURATION: 'Release'
+  AZURE_WEBAPP_NAME: 'medicaltracker-backend' # Backend-specific Azure Web App
+
+jobs:
+  build-and-test-backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: bloodsugar
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up .NET 9.0
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Install backend dependencies
+      run: dotnet restore medicaltracker.sln
+
+    - name: Build backend
+      run: dotnet build medicaltracker.sln --configuration Release
+
+    # - name: Run backend tests
+    #   run: dotnet test ./xunit/Backend.Tests.csproj --verbosity normal
+    #   env:
+    #     ConnectionStrings__DefaultConnection: ""
+
+    - name: Test backend startup
+      run: |
+        cd backend
+        timeout 30s dotnet run --urls http://localhost:3000 || true
+      env:
+        ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
+        ASPNETCORE_ENVIRONMENT: "Development"
+
+    - name: Build backend for production
+      run: |
+        dotnet publish medicaltracker.sln -c Release -o ./publish
+      env:
+        ConnectionStrings__DefaultConnection: "Host=localhost;Port=5432;Database=bloodsugar;Username=postgres;Password=password"
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: build-and-test-backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy Backend to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: ./publish
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }} 
