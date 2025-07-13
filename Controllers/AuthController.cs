@@ -191,27 +191,57 @@ public class AuthController : ControllerBase
                 _logger.LogInformation("Updated existing user: {Email}", email);
             }
 
-            // Generate JWT token
-            var token = _jwtService.GenerateToken(user, false); // Default to no remember me
+            // Generate JWT token pair
+            var (accessToken, refreshToken) = _jwtService.GenerateTokenPair(user, false);
             
-            _logger.LogInformation("OAuth callback successful for user: {Email}, JWT token generated", email);
+            _logger.LogInformation("OAuth callback successful for user: {Email}, JWT token pair generated", email);
             
-            // Set JWT token as HTTP-only cookie
-            var cookieOptions = new CookieOptions
+            // Get Google access token expiration (default to 1 hour if not available)
+            var googleTokenExpiresIn = 3600; // Default 1 hour in seconds
+            try
             {
-                HttpOnly = true,
+                // Try to get expiration from Google token info if available
+                var googleTokenInfo = await GetGoogleTokenInfo(code);
+                if (googleTokenInfo?.expires_in != null)
+                {
+                    googleTokenExpiresIn = googleTokenInfo.expires_in;
+                    _logger.LogInformation("Google token expires in {ExpiresIn} seconds", googleTokenExpiresIn);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Could not get Google token info, using default expiration");
+            }
+            
+            // Set access token as normal cookie (accessible by JavaScript)
+            var accessTokenExpires = DateTime.UtcNow.AddSeconds(googleTokenExpiresIn);
+            var accessTokenOptions = new CookieOptions
+            {
+                HttpOnly = false, // Accessible by JavaScript
                 Secure = !_environment.IsDevelopment(),
                 SameSite = SameSiteMode.Lax,
-                MaxAge = TimeSpan.FromHours(24) // 24 hours for regular token
+                MaxAge = TimeSpan.FromSeconds(googleTokenExpiresIn),
+                Expires = accessTokenExpires
             };
             
-            Response.Cookies.Append("auth_token", token, cookieOptions);
+            // Set refresh token as HTTP-only cookie (not accessible by JavaScript)
+            var refreshTokenOptions = new CookieOptions
+            {
+                HttpOnly = true, // Not accessible by JavaScript
+                Secure = !_environment.IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                MaxAge = TimeSpan.FromHours(24), // 24 hours
+                Expires = DateTime.UtcNow.AddHours(24)
+            };
+            
+            Response.Cookies.Append("access_token", accessToken, accessTokenOptions);
+            Response.Cookies.Append("refresh_token", refreshToken, refreshTokenOptions);
             
             // Get frontend URL from configuration or use default
             var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
-            var redirectUrl = $"{frontendUrl}/dashboard?token={Uri.EscapeDataString(token)}";
+            var redirectUrl = $"{frontendUrl}/dashboard";
             
-            _logger.LogInformation("Redirecting to frontend: {RedirectUrl}", redirectUrl);
+            _logger.LogInformation("Redirecting to frontend: {RedirectUrl}, access token expires: {AccessExpires}", redirectUrl, accessTokenExpires);
             
             // Redirect to frontend dashboard
             return Redirect(redirectUrl);
@@ -223,36 +253,118 @@ public class AuthController : ControllerBase
         }
     }
 
+    private async Task<dynamic?> GetGoogleTokenInfo(string code)
+    {
+        try
+        {
+            var clientId = _configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+            var clientSecret = _configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+            
+            if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+            {
+                return null;
+            }
+            
+            using var httpClient = new HttpClient();
+            var tokenRequest = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("code", code),
+                new KeyValuePair<string, string>("grant_type", "authorization_code"),
+                new KeyValuePair<string, string>("redirect_uri", "/api/auth/callback")
+            });
+            
+            var response = await httpClient.PostAsync("https://oauth2.googleapis.com/token", tokenRequest);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                return System.Text.Json.JsonSerializer.Deserialize<dynamic>(content);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get Google token info");
+        }
+        
+        return null;
+    }
+
     [HttpPost("logout")]
     public IActionResult Logout()
     {
-        // Clear the JWT cookie
-        Response.Cookies.Delete("auth_token");
+        // Clear both JWT cookies
+        Response.Cookies.Delete("access_token");
+        Response.Cookies.Delete("refresh_token");
         return Ok(new { message = "Logged out successfully" });
+    }
+
+    [HttpPost("refresh")]
+    public IActionResult RefreshToken()
+    {
+        try
+        {
+            // Get refresh token from HTTP-only cookie
+            var refreshToken = Request.Cookies["refresh_token"];
+            
+            if (string.IsNullOrEmpty(refreshToken))
+            {
+                _logger.LogWarning("No refresh token found in request");
+                return Unauthorized(new { message = "No refresh token provided" });
+            }
+            
+            // Validate refresh token and generate new access token
+            var newAccessToken = _jwtService.GenerateAccessTokenFromRefreshToken(refreshToken);
+            
+            // Set new access token as normal cookie
+            var accessTokenOptions = new CookieOptions
+            {
+                HttpOnly = false, // Accessible by JavaScript
+                Secure = !_environment.IsDevelopment(),
+                SameSite = SameSiteMode.Lax,
+                MaxAge = TimeSpan.FromHours(1), // 1 hour
+                Expires = DateTime.UtcNow.AddHours(1)
+            };
+            
+            Response.Cookies.Append("access_token", newAccessToken, accessTokenOptions);
+            
+            _logger.LogInformation("Access token refreshed successfully");
+            
+            return Ok(new { 
+                message = "Access token refreshed successfully",
+                accessToken = newAccessToken,
+                expiresIn = 3600 // 1 hour in seconds
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to refresh access token");
+            return Unauthorized(new { message = "Invalid refresh token" });
+        }
     }
 
     [HttpGet("me")]
     public async Task<IActionResult> Me()
     {
-        // Get token from Authorization header or cookie
+        // Get token from Authorization header or access token cookie
         var token = Request.Headers["Authorization"].FirstOrDefault()?.Replace("Bearer ", "") 
-                   ?? Request.Cookies["auth_token"];
+                   ?? Request.Cookies["access_token"];
         
         if (string.IsNullOrEmpty(token))
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "No access token provided" });
         }
 
         var email = _jwtService.GetUserEmailFromToken(token);
         if (string.IsNullOrEmpty(email))
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "Invalid access token" });
         }
 
         var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
         if (user == null)
         {
-            return Unauthorized();
+            return Unauthorized(new { message = "User not found" });
         }
 
         var userDto = new UserDto
