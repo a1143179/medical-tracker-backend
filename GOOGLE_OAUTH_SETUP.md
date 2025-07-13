@@ -1,6 +1,6 @@
 # Google OAuth Setup Guide
 
-This guide will walk you through setting up Google OAuth credentials for the Blood Sugar History application.
+This guide will walk you through setting up Google OAuth credentials for the Medical Tracker application.
 
 ## Step 1: Access Google Cloud Console
 
@@ -27,7 +27,7 @@ If this is your first OAuth app, you'll need to configure the consent screen:
 
 1. Choose **"External"** user type (unless you have a Google Workspace)
 2. Fill in the required information:
-   - **App name**: "Blood Sugar History"
+   - **App name**: "Medical Tracker"
    - **User support email**: Your email address
    - **Developer contact information**: Your email address
 3. Click **"Save and Continue"**
@@ -39,7 +39,7 @@ If this is your first OAuth app, you'll need to configure the consent screen:
 
 1. Click **"Create Credentials"** > **"OAuth 2.0 Client IDs"**
 2. Choose **"Web application"** as the application type
-3. Give it a name like **"Blood Sugar History - Development"**
+3. Give it a name like **"Medical Tracker - Development"**
 
 ## Step 6: Configure Authorized Redirect URIs
 
@@ -50,7 +50,7 @@ Add these redirect URIs:
 
 **For Production (when you deploy):**
 - `https://yourdomain.com/api/auth/callback`
-- `https://bloodsugarhistory.azurewebsites.net/api/auth/callback`
+- `https://medicaltracker.azurewebsites.net/api/auth/callback`
 
 ## Step 7: Configure Authorized JavaScript Origins
 
@@ -61,7 +61,7 @@ Add these JavaScript origins:
 
 **For Production (when you deploy):**
 - `https://yourdomain.com`
-- `https://bloodsugarhistory.azurewebsites.net`
+- `https://medicaltracker.azurewebsites.net`
 
 ## Step 8: Get Your Credentials
 

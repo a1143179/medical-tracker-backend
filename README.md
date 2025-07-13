@@ -23,7 +23,7 @@ A .NET 9 Web API backend for the Medical Tracker application with Google OAuth a
 
 1. **Install dependencies:**
    ```bash
-   dotnet restore bloodsugerhistory.sln
+   dotnet restore medicaltracker.sln
    ```
 2. **Set environment variables:**
    - Copy `appsettings.Development.json.example` to `appsettings.Development.json` and fill in your credentials.

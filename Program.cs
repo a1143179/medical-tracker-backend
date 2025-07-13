@@ -65,7 +65,7 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         };
         
         // Configure cookie options for better OAuth state handling
-        options.Cookie.Name = "BloodSugarAuth";
+        options.Cookie.Name = "MedicalTrackerAuth";
         options.Cookie.HttpOnly = true;
         options.Cookie.IsEssential = true;
         options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
@@ -194,7 +194,7 @@ if (!string.IsNullOrEmpty(connectionString))
 else
 {
     builder.Services.AddDbContext<AppDbContext>(options =>
-        options.UseInMemoryDatabase("BloodSugarHistoryDb"));
+        options.UseInMemoryDatabase("MedicalTrackerDb"));
 }
 
 // Configure Data Protection for production
@@ -217,7 +217,7 @@ if (!builder.Environment.IsDevelopment())
         
         builder.Services.AddDataProtection()
             .PersistKeysToFileSystem(keyRingDir)
-            .SetApplicationName("BloodSugarHistory")
+            .SetApplicationName("MedicalTracker")
             .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Longer key lifetime for production
     }
     catch (Exception ex)
@@ -225,14 +225,14 @@ if (!builder.Environment.IsDevelopment())
         // Log the error but continue with in-memory fallback
         Console.WriteLine($"Failed to configure file-based data protection: {ex.Message}");
         builder.Services.AddDataProtection()
-            .SetApplicationName("BloodSugarHistory");
+            .SetApplicationName("MedicalTracker");
     }
 }
 else
 {
     // In development, use a consistent key ring
     builder.Services.AddDataProtection()
-        .SetApplicationName("BloodSugarHistory");
+        .SetApplicationName("MedicalTracker");
 }
 
 // Add session support
@@ -244,7 +244,7 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
     options.Cookie.MaxAge = TimeSpan.FromDays(30); // Set explicit max age
-    options.Cookie.Name = "BloodSugarSession"; // Use custom cookie name
+    options.Cookie.Name = "MedicalTrackerSession"; // Use custom cookie name
     options.Cookie.SameSite = SameSiteMode.Lax; // Allow OAuth redirects
 });
 
@@ -294,7 +294,7 @@ app.Use(async (context, next) =>
     catch (System.Security.Cryptography.CryptographicException ex) when (ex.Message.Contains("key") && ex.Message.Contains("not found"))
     {
         // Clear invalid session cookies
-        context.Response.Cookies.Delete("BloodSugarSession");
+        context.Response.Cookies.Delete("MedicalTrackerSession");
         context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
         
         // Redirect to login page
@@ -383,8 +383,8 @@ app.Use(async (context, next) =>
         logger.LogError(ex, "OAuth state error detected - clearing cookies and redirecting");
         
         // Clear all authentication and session cookies
-        context.Response.Cookies.Delete("BloodSugarAuth");
-        context.Response.Cookies.Delete("BloodSugarSession");
+        context.Response.Cookies.Delete("MedicalTrackerAuth");
+        context.Response.Cookies.Delete("MedicalTrackerSession");
         context.Response.Cookies.Delete(".AspNetCore.Correlation.Google");
         context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
         
@@ -401,8 +401,8 @@ app.Use(async (context, next) =>
         logger.LogError(ex, "Data protection key error - clearing cookies");
         
         // Clear invalid session cookies
-        context.Response.Cookies.Delete("BloodSugarSession");
-        context.Response.Cookies.Delete("BloodSugarAuth");
+        context.Response.Cookies.Delete("MedicalTrackerSession");
+        context.Response.Cookies.Delete("MedicalTrackerAuth");
         context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
         
         // Redirect to login page

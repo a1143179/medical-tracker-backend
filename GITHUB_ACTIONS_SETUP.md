@@ -1,6 +1,6 @@
 # GitHub Actions Setup Guide
 
-This guide will help you migrate from Azure Deployment Center to GitHub Actions for your blood sugar tracker application.
+This guide will help you migrate from Azure Deployment Center to GitHub Actions for your medical tracker application.
 
 ## Prerequisites
 
@@ -35,9 +35,9 @@ In the `.github/workflows/deploy.yml` file, update these variables if needed:
 ```yaml
 env:
   BUILD_CONFIGURATION: 'Release'
-  IMAGE_NAME: 'bloodsugerhistory'
+  IMAGE_NAME: 'medicaltracker'
   DOCKER_HUB_NAMESPACE: 'iceinplanet' # Replace with your Docker Hub username
-  AZURE_WEBAPP_NAME: 'bloodsugarhistory' # Replace with your Azure Web App name
+  AZURE_WEBAPP_NAME: 'medicaltracker' # Replace with your Azure Web App name
 ```
 
 ## Step 2: Disable Azure Deployment Center
