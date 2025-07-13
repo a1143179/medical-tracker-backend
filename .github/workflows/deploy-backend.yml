@@ -28,7 +28,7 @@ on:
 
 env:
   BUILD_CONFIGURATION: 'Release'
-  AZURE_WEBAPP_NAME: 'medicaltracker-backend' # Backend-specific Azure Web App
+  AZURE_WEBAPP_NAME: 'medicaltrackerbackend' # Backend-specific Azure Web App
 
 jobs:
   build-and-test-backend:
