@@ -11,12 +11,6 @@ using Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Ensure the app runs on port 55556 in development
-if (builder.Environment.IsDevelopment())
-{
-    builder.WebHost.UseUrls("http://localhost:55556");
-}
-
 // Configure Serilog for file logging
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()
