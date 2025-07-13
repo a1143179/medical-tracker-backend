@@ -65,12 +65,19 @@ public class AuthController : ControllerBase
             return BadRequest(new { message = "Google OAuth is not configured. Please add Google:ClientId and Google:ClientSecret to your configuration." });
         }
 
+        // Ensure session is available for OAuth state
+        if (!HttpContext.Session.IsAvailable)
+        {
+            _logger.LogWarning("Session is not available for OAuth login");
+        }
+
         var properties = new AuthenticationProperties
         {
             RedirectUri = "/api/auth/callback",
             Items =
             {
-                { "returnUrl", returnUrl }
+                { "returnUrl", returnUrl },
+                { "correlationId", Guid.NewGuid().ToString() }
             },
             // Ensure OAuth state is properly maintained
             IsPersistent = true,
@@ -116,7 +123,91 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpGet("callback")]
+    public async Task<IActionResult> Callback()
+    {
+        try
+        {
+            _logger.LogInformation("OAuth callback received");
+            
+            // Check if this is a valid OAuth callback with required parameters
+            var state = Request.Query["state"].ToString();
+            var code = Request.Query["code"].ToString();
+            
+            if (string.IsNullOrEmpty(state) || string.IsNullOrEmpty(code))
+            {
+                _logger.LogWarning("OAuth callback missing required parameters - state: {HasState}, code: {HasCode}", 
+                    !string.IsNullOrEmpty(state), !string.IsNullOrEmpty(code));
+                
+                // If user is already authenticated, redirect to dashboard
+                if (User.Identity?.IsAuthenticated == true)
+                {
+                    _logger.LogInformation("User already authenticated, redirecting to dashboard");
+                    return Redirect("/dashboard");
+                }
+                
+                // Otherwise redirect to login
+                return Redirect("/login?error=invalid_callback");
+            }
+            
+            // Check if user is authenticated
+            if (!User.Identity.IsAuthenticated)
+            {
+                _logger.LogWarning("User is not authenticated in callback");
+                return Redirect("/login?error=not_authenticated");
+            }
 
+            // Get user info from claims
+            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var name = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            var googleId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(email))
+            {
+                _logger.LogError("Email claim not found in OAuth callback");
+                return Redirect("/login?error=no_email");
+            }
+
+            // Find or create user
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == email);
+            
+            if (user == null)
+            {
+                user = new Backend.Models.User
+                {
+                    Email = email,
+                    Name = name ?? email,
+                    GoogleId = googleId
+                };
+                _context.Users.Add(user);
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Created new user: {Email}", email);
+            }
+            else if (!string.IsNullOrEmpty(googleId) && user.GoogleId != googleId)
+            {
+                user.GoogleId = googleId;
+                if (!string.IsNullOrEmpty(name))
+                {
+                    user.Name = name;
+                }
+                await _context.SaveChangesAsync();
+                _logger.LogInformation("Updated existing user: {Email}", email);
+            }
+
+            // Set session
+            HttpContext.Session.SetString("UserId", user.Id.ToString());
+            
+            _logger.LogInformation("OAuth callback successful for user: {Email}", email);
+            
+            // Redirect to dashboard
+            return Redirect("/dashboard");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error in OAuth callback");
+            return Redirect("/login?error=callback_failed");
+        }
+    }
 
     [HttpPost("logout")]
     public IActionResult Logout()
@@ -148,5 +239,23 @@ public class AuthController : ControllerBase
         };
 
         return Ok(userDto);
+    }
+
+    [HttpGet("test")]
+    public IActionResult Test()
+    {
+        var googleClientId = _configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
+        var googleClientSecret = _configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
+        
+        return Ok(new 
+        { 
+            hasClientId = !string.IsNullOrEmpty(googleClientId),
+            hasClientSecret = !string.IsNullOrEmpty(googleClientSecret),
+            environment = _environment.EnvironmentName,
+            sessionAvailable = HttpContext.Session.IsAvailable,
+            isAuthenticated = User.Identity?.IsAuthenticated ?? false,
+            userAgent = Request.Headers["User-Agent"].ToString(),
+            cookies = Request.Cookies.Keys.ToList()
+        });
     }
 } 

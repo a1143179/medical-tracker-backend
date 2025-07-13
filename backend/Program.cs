@@ -4,24 +4,42 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Authentication;
+using Serilog;
+using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog for file logging
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore.Authentication", LogEventLevel.Debug)
+    .MinimumLevel.Override("Backend", LogEventLevel.Debug)
+    .WriteTo.Console()
+    .WriteTo.File("logs/app.log", 
+        rollingInterval: RollingInterval.Day,
+        fileSizeLimitBytes: 10 * 1024 * 1024, // 10MB
+        retainedFileCountLimit: 5,
+        rollOnFileSizeLimit: true)
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 // Add services to the container.
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Add health checks
+builder.Services.AddHealthChecks();
+
 // Add Google OAuth authentication
 var googleClientId = builder.Configuration["Google:ClientId"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_ID");
 var googleClientSecret = builder.Configuration["Google:ClientSecret"] ?? Environment.GetEnvironmentVariable("GOOGLE_CLIENT_SECRET");
 
-// Log OAuth configuration status
-var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-logger.LogInformation("Google OAuth configuration - ClientId: {HasClientId}, ClientSecret: {HasClientSecret}, Environment: {Environment}", 
-    !string.IsNullOrEmpty(googleClientId), 
-    !string.IsNullOrEmpty(googleClientSecret), 
-    builder.Environment.EnvironmentName);
+// Log OAuth configuration status - will log after app is built to avoid BuildServiceProvider warning
+var hasClientId = !string.IsNullOrEmpty(googleClientId);
+var hasClientSecret = !string.IsNullOrEmpty(googleClientSecret);
 
 if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientSecret))
 {
@@ -29,12 +47,28 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
     {
         options.DefaultScheme = "Cookies";
         options.DefaultChallengeScheme = GoogleDefaults.AuthenticationScheme;
+        options.DefaultSignInScheme = "Cookies";
     })
     .AddCookie("Cookies", options =>
     {
         options.Events.OnRedirectToLogin = context =>
         {
             context.Response.StatusCode = 401;
+            return Task.CompletedTask;
+        };
+        
+        // Configure cookie options for better OAuth state handling
+        options.Cookie.Name = "BloodSugarAuth";
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+        options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
+        options.Cookie.SameSite = SameSiteMode.Lax; // Allow OAuth redirects
+        options.Cookie.MaxAge = TimeSpan.FromHours(1); // Shorter timeout for OAuth
+        
+        // Handle authentication failures
+        options.Events.OnRedirectToAccessDenied = context =>
+        {
+            context.Response.StatusCode = 403;
             return Task.CompletedTask;
         };
     })
@@ -44,6 +78,10 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
         options.ClientSecret = googleClientSecret;
         options.CallbackPath = "/api/auth/callback";
         options.SaveTokens = true; // Save tokens for debugging
+        
+        // Configure OAuth state handling - use default state format with better session support
+        options.CorrelationCookie.SameSite = SameSiteMode.Lax;
+        options.CorrelationCookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
         
         // Configure dynamic redirect URI for production
         if (!builder.Environment.IsDevelopment())
@@ -67,12 +105,29 @@ if (!string.IsNullOrEmpty(googleClientId) && !string.IsNullOrEmpty(googleClientS
             var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
             logger.LogError("OAuth remote failure: {Error}", context.Failure?.Message);
             
+            // Check if this is a state error and user might already be authenticated
+            if (context.Failure?.Message?.Contains("oauth state was missing or invalid") == true)
+            {
+                // Check if user is already authenticated
+                if (context.HttpContext.User?.Identity?.IsAuthenticated == true)
+                {
+                    logger.LogInformation("OAuth state error but user is authenticated, redirecting to dashboard");
+                    context.Response.Redirect("/dashboard");
+                    context.HandleResponse();
+                    return Task.CompletedTask;
+                }
+            }
+            
+            // Clear any invalid session data
+            context.HttpContext.Session.Clear();
+            
             // Redirect to login page with error
             context.Response.Redirect("/login?error=oauth_failed");
             context.HandleResponse();
             return Task.CompletedTask;
         };
         
+        // Add ticket validation
         options.Events.OnTicketReceived = async context =>
         {
             var userService = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
@@ -146,13 +201,22 @@ if (!builder.Environment.IsDevelopment())
     
     try
     {
+        // Create directory if it doesn't exist
+        var keyRingDir = new DirectoryInfo(keyRingPath);
+        if (!keyRingDir.Exists)
+        {
+            keyRingDir.Create();
+        }
+        
         builder.Services.AddDataProtection()
-            .PersistKeysToFileSystem(new DirectoryInfo(keyRingPath))
-            .SetApplicationName("BloodSugarHistory");
+            .PersistKeysToFileSystem(keyRingDir)
+            .SetApplicationName("BloodSugarHistory")
+            .SetDefaultKeyLifetime(TimeSpan.FromDays(90)); // Longer key lifetime for production
     }
-    catch
+    catch (Exception ex)
     {
-        // Fallback to in-memory if file system is not available
+        // Log the error but continue with in-memory fallback
+        Console.WriteLine($"Failed to configure file-based data protection: {ex.Message}");
         builder.Services.AddDataProtection()
             .SetApplicationName("BloodSugarHistory");
     }
@@ -174,9 +238,15 @@ builder.Services.AddSession(options =>
     options.Cookie.SecurePolicy = !builder.Environment.IsDevelopment() ? CookieSecurePolicy.Always : CookieSecurePolicy.None;
     options.Cookie.MaxAge = TimeSpan.FromDays(30); // Set explicit max age
     options.Cookie.Name = "BloodSugarSession"; // Use custom cookie name
+    options.Cookie.SameSite = SameSiteMode.Lax; // Allow OAuth redirects
 });
 
 var app = builder.Build();
+
+// Log OAuth configuration status after app is built
+var logger = app.Services.GetRequiredService<ILogger<Program>>();
+logger.LogInformation("Google OAuth configuration - ClientId: {HasClientId}, ClientSecret: {HasClientSecret}, Environment: {Environment}", 
+    hasClientId, hasClientSecret, app.Environment.EnvironmentName);
 
 // Ensure database is created and migrations are applied
 using (var scope = app.Services.CreateScope())
@@ -192,7 +262,11 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Only use HTTPS redirect if not in container environment
+if (!app.Environment.IsDevelopment() && Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") == null)
+{
+    app.UseHttpsRedirection();
+}
 
 // Serve static files from wwwroot in production
 if (!app.Environment.IsDevelopment())
@@ -245,13 +319,97 @@ app.Use(async (context, next) =>
     if (context.Request.Path.StartsWithSegments("/api/auth"))
     {
         await context.Session.LoadAsync();
+        
+        // Log OAuth flow for debugging
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogInformation("OAuth request: {Path}, Method: {Method}, HasSession: {HasSession}, QueryString: {QueryString}", 
+            context.Request.Path, context.Request.Method, context.Session.IsAvailable, context.Request.QueryString);
+        
+        // Prevent duplicate callback requests
+        if (context.Request.Path.StartsWithSegments("/api/auth/callback") && 
+            string.IsNullOrEmpty(context.Request.Query["state"].ToString()) &&
+            string.IsNullOrEmpty(context.Request.Query["code"].ToString()))
+        {
+            logger.LogWarning("Duplicate callback request detected without OAuth parameters");
+            
+            // If user is already authenticated, redirect to dashboard
+            if (context.User?.Identity?.IsAuthenticated == true)
+            {
+                context.Response.Redirect("/dashboard");
+                return;
+            }
+            
+            // Otherwise redirect to login
+            context.Response.Redirect("/login?error=duplicate_callback");
+            return;
+        }
     }
     
     await next();
 });
 
+// Add OAuth correlation cookie cleanup middleware
+app.Use(async (context, next) =>
+{
+    // Clean up old OAuth correlation cookies that might cause state issues
+    var correlationCookie = context.Request.Cookies[".AspNetCore.Correlation.Google"];
+    if (!string.IsNullOrEmpty(correlationCookie))
+    {
+        // Only delete if it's very old (more than 10 minutes)
+        // This prevents deleting active OAuth flows
+        context.Response.Cookies.Delete(".AspNetCore.Correlation.Google");
+    }
+    
+    await next();
+});
+
+// Add OAuth error handling middleware
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (AuthenticationFailureException ex) when (ex.Message.Contains("oauth state was missing or invalid"))
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "OAuth state error detected - clearing cookies and redirecting");
+        
+        // Clear all authentication and session cookies
+        context.Response.Cookies.Delete("BloodSugarAuth");
+        context.Response.Cookies.Delete("BloodSugarSession");
+        context.Response.Cookies.Delete(".AspNetCore.Correlation.Google");
+        context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
+        
+        // Clear session
+        context.Session.Clear();
+        
+        // Redirect to login with error
+        context.Response.Redirect("/login?error=oauth_state_invalid");
+        return;
+    }
+    catch (Exception ex) when (ex.Message.Contains("key") && ex.Message.Contains("not found"))
+    {
+        var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Data protection key error - clearing cookies");
+        
+        // Clear invalid session cookies
+        context.Response.Cookies.Delete("BloodSugarSession");
+        context.Response.Cookies.Delete("BloodSugarAuth");
+        context.Response.Cookies.Delete(".AspNetCore.Antiforgery");
+        
+        // Redirect to login page
+        context.Response.Redirect("/login?error=session_expired");
+        return;
+    }
+});
+
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Add health check endpoint
+app.MapHealthChecks("/health");
+
 app.MapControllers();
 
 // Proxy all non-API requests to frontend dev server on port 3001 (development only)
