@@ -137,7 +137,7 @@ public class AuthController : ControllerBase
                     !string.IsNullOrEmpty(state), !string.IsNullOrEmpty(code));
                 
                 // If user is already authenticated, redirect to dashboard
-                if (User.Identity?.IsAuthenticated == true)
+                if (User?.Identity?.IsAuthenticated == true)
                 {
                     _logger.LogInformation("User already authenticated, redirecting to dashboard");
                     return Redirect("/dashboard");
@@ -148,16 +148,16 @@ public class AuthController : ControllerBase
             }
             
             // Check if user is authenticated
-            if (!User.Identity.IsAuthenticated)
+            if (User?.Identity?.IsAuthenticated != true)
             {
                 _logger.LogWarning("User is not authenticated in callback");
                 return Redirect("/login?error=not_authenticated");
             }
 
             // Get user info from claims
-            var email = User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
-            var name = User.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
-            var googleId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var email = User?.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value;
+            var name = User?.FindFirst(System.Security.Claims.ClaimTypes.Name)?.Value;
+            var googleId = User?.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
 
             if (string.IsNullOrEmpty(email))
             {
@@ -194,7 +194,7 @@ public class AuthController : ControllerBase
             // Generate JWT token
             var token = _jwtService.GenerateToken(user, false); // Default to no remember me
             
-            _logger.LogInformation("OAuth callback successful for user: {Email}", email);
+            _logger.LogInformation("OAuth callback successful for user: {Email}, JWT token generated", email);
             
             // Set JWT token as HTTP-only cookie
             var cookieOptions = new CookieOptions
@@ -207,8 +207,14 @@ public class AuthController : ControllerBase
             
             Response.Cookies.Append("auth_token", token, cookieOptions);
             
-            // Redirect to dashboard
-            return Redirect("/dashboard");
+            // Get frontend URL from configuration or use default
+            var frontendUrl = _configuration["Frontend:Url"] ?? "http://localhost:3000";
+            var redirectUrl = $"{frontendUrl}/dashboard?token={Uri.EscapeDataString(token)}";
+            
+            _logger.LogInformation("Redirecting to frontend: {RedirectUrl}", redirectUrl);
+            
+            // Redirect to frontend dashboard
+            return Redirect(redirectUrl);
         }
         catch (Exception ex)
         {
@@ -270,9 +276,28 @@ public class AuthController : ControllerBase
             hasClientId = !string.IsNullOrEmpty(googleClientId),
             hasClientSecret = !string.IsNullOrEmpty(googleClientSecret),
             environment = _environment.EnvironmentName,
-            isAuthenticated = User.Identity?.IsAuthenticated ?? false,
+            isAuthenticated = User?.Identity?.IsAuthenticated ?? false,
             userAgent = Request.Headers["User-Agent"].ToString(),
             cookies = Request.Cookies.Keys.ToList()
+        });
+    }
+
+    [HttpGet("test-jwt")]
+    public IActionResult TestJwt()
+    {
+        var jwtKey = _configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+        var jwtIssuer = _configuration["Jwt:Issuer"] ?? Environment.GetEnvironmentVariable("JWT_ISSUER");
+        var jwtAudience = _configuration["Jwt:Audience"] ?? Environment.GetEnvironmentVariable("JWT_AUDIENCE");
+        var frontendUrl = _configuration["Frontend:Url"] ?? Environment.GetEnvironmentVariable("FRONTEND_URL");
+        
+        return Ok(new 
+        { 
+            hasJwtKey = !string.IsNullOrEmpty(jwtKey),
+            hasJwtIssuer = !string.IsNullOrEmpty(jwtIssuer),
+            hasJwtAudience = !string.IsNullOrEmpty(jwtAudience),
+            frontendUrl = frontendUrl,
+            jwtKeyLength = jwtKey?.Length ?? 0,
+            environment = _environment.EnvironmentName
         });
     }
 } 
