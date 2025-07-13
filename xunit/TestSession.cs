@@ -16,5 +16,5 @@ public class TestSession : ISession
     public void Set(string key, byte[] value) => _store[key] = value;
     public bool TryGetValue(string key, out byte[] value) => _store.TryGetValue(key, out value);
     public void SetString(string key, string value) => Set(key, System.Text.Encoding.UTF8.GetBytes(value));
-    public string GetString(string key) => TryGetValue(key, out var val) ? System.Text.Encoding.UTF8.GetString(val) : null;
+    public string? GetString(string key) => TryGetValue(key, out var val) ? System.Text.Encoding.UTF8.GetString(val) : null;
 } 
